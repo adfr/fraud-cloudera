@@ -1,0 +1,53 @@
+---
+# Configuration file for CML jobs
+# Contains all job definitions and their parameters
+
+jobs:
+  create_env:
+    name: Create Python Environment
+    script: create_environment.py
+    kernel: python3
+    runtime_id: "docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.11-standard:2025.01.3-b8"
+    cpu: 1
+    memory: 2
+    timeout: 1800  # 30 minutes
+    environment: {}
+    arguments: ""
+
+  feature_engineering:
+    name: Feature Engineering for Fraud Detection
+    script: scripts/feature_engineering.py
+    kernel: python3
+    runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.11-standard:2025.01.3-b8
+    cpu: 2
+    memory: 4
+    timeout: 1800  # 30 minutes
+    environment: {}
+    arguments: ""
+
+  train_model:
+    name: Train LightGBM Fraud Detection Model
+    script: scripts/train_model.py
+    kernel: python3
+    runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.11-standard:2025.01.3-b8
+    cpu: 4
+    memory: 8
+    timeout: 3600  # 60 minutes
+    environment: {}
+    arguments: ""
+    dependencies:
+      - feature_engineering
+
+  score_transactions:
+    name: Score Last Year Transactions
+    script: scripts/score_transactions.py
+    kernel: python3
+    runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.11-standard:2025.01.3-b8
+    cpu: 2
+    memory: 4
+    timeout: 1800  # 30 minutes
+    environment: {}
+    arguments: ""
+    dependencies:
+      - train_model
+
