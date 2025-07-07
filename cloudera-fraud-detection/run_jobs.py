@@ -172,10 +172,7 @@ def setup_jobs():
             job_id_map[job_key] = job_id
             print(f"Successfully created environment job with ID: {job_id}")
             
-            # Run the job immediately
-            print(f"Running environment setup job...")
-            run_response = client.start_job(job_id, project_id=project_id)
-            print(f"Environment setup job started with run ID: {run_response.id}")
+            # Don't run immediately - we'll run all jobs at the end
         except Exception as e:
             print(f"Error creating/running environment job: {str(e)}")
     
@@ -266,13 +263,91 @@ def setup_jobs():
     
     return job_id_map
 
+def run_jobs_sequentially(client, project_id, job_id_map):
+    """
+    Run jobs sequentially, waiting for each to complete before starting the next
+    """
+    import time
+    
+    # Define job order based on dependencies
+    job_order = ["create_env", "feature_engineering", "train_model", "score_transactions"]
+    
+    for job_key in job_order:
+        if job_key not in job_id_map:
+            continue
+            
+        job_id = job_id_map[job_key]
+        print(f"\nStarting job: {job_key} (ID: {job_id})")
+        
+        try:
+            # Create job run
+            job_run = client.create_job_run(
+                cmlapi.CreateJobRunRequest(), 
+                project_id=project_id,
+                job_id=job_id
+            )
+            print(f"Job run created with ID: {job_run.id}")
+            
+            # Monitor job status
+            while True:
+                # Get latest job run status
+                job_runs = client.list_job_runs(
+                    project_id=project_id, 
+                    job_id=job_id, 
+                    sort="-created_at", 
+                    page_size=1
+                )
+                
+                if job_runs.job_runs:
+                    latest_run = job_runs.job_runs[0]
+                    status = latest_run.status
+                    print(f"Job {job_key} status: {status}")
+                    
+                    if status in ["succeeded", "failed", "stopped"]:
+                        if status == "succeeded":
+                            print(f"Job {job_key} completed successfully")
+                        else:
+                            print(f"Job {job_key} failed with status: {status}")
+                            return False
+                        break
+                
+                # Wait before checking again
+                time.sleep(10)
+                
+        except Exception as e:
+            print(f"Error running job {job_key}: {str(e)}")
+            return False
+    
+    return True
+
 if __name__ == "__main__":
     try:
+        # Initialize CML API client
+        api_host = os.environ.get("CML_API_HOST")
+        api_key = os.environ.get("CML_API_KEY")
+        project_id = os.environ.get("CML_PROJECT_ID")
+        
+        client = cmlapi.default_client(api_host, api_key)
+        
+        # Create all jobs
         job_ids = setup_jobs()
         
         print("\nJob setup complete. Created jobs:")
         for job_name, job_id in job_ids.items():
             print(f"- {job_name}: {job_id}")
+        
+        # Run jobs sequentially
+        print("\n" + "="*50)
+        print("Starting sequential job execution...")
+        print("="*50)
+        
+        success = run_jobs_sequentially(client, project_id, job_ids)
+        
+        if success:
+            print("\nAll jobs completed successfully!")
+        else:
+            print("\nJob execution failed!")
+            sys.exit(1)
             
     except ValueError as e:
         print(f"Error: {str(e)}")

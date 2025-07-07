@@ -15,21 +15,33 @@ from datetime import datetime
 def train_lightgbm_model(X_train, y_train, X_val, y_val):
     """Train LightGBM model with basic hyperparameters"""
     
+    # Calculate scale_pos_weight for extreme imbalance
+    n_pos = y_train.sum()
+    n_neg = len(y_train) - n_pos
+    scale_pos_weight = n_neg / n_pos
+    
+    print(f"Class balance - Non-fraud: {n_neg}, Fraud: {n_pos}")
+    print(f"Scale pos weight: {scale_pos_weight:.2f}")
+    
     # LightGBM parameters for imbalanced classification
     params = {
         'objective': 'binary',
-        'metric': 'auc',
+        'metric': ['auc', 'binary_logloss'],
         'boosting_type': 'gbdt',
-        'num_leaves': 31,
-        'learning_rate': 0.05,
-        'feature_fraction': 0.8,
-        'bagging_fraction': 0.8,
+        'num_leaves': 15,  # Reduced to prevent overfitting
+        'learning_rate': 0.01,  # Lower learning rate
+        'feature_fraction': 0.7,
+        'bagging_fraction': 0.7,
         'bagging_freq': 5,
-        'max_depth': -1,
-        'min_child_samples': 20,
-        'is_unbalance': True,  # Handle class imbalance
+        'max_depth': 5,  # Limit depth to prevent overfitting
+        'min_child_samples': 50,  # Increased to prevent overfitting
+        'scale_pos_weight': scale_pos_weight,  # Weight positive class
         'random_state': 42,
-        'verbose': -1
+        'verbose': -1,
+        'force_row_wise': True,
+        'min_split_gain': 0.01,  # Prevent overfitting
+        'reg_alpha': 0.1,  # L1 regularization
+        'reg_lambda': 0.1  # L2 regularization
     }
     
     # Create datasets
@@ -43,8 +55,8 @@ def train_lightgbm_model(X_train, y_train, X_val, y_val):
         train_data,
         valid_sets=[train_data, val_data],
         valid_names=['train', 'val'],
-        num_boost_round=300,
-        callbacks=[lgb.early_stopping(50), lgb.log_evaluation(50)]
+        num_boost_round=1000,
+        callbacks=[lgb.early_stopping(100), lgb.log_evaluation(100)]
     )
     
     return model
@@ -57,8 +69,17 @@ def evaluate_model(model, X, y, dataset_name):
     # Find optimal threshold using validation set
     precision, recall, thresholds = precision_recall_curve(y, predictions)
     f1_scores = 2 * (precision * recall) / (precision + recall + 1e-8)
-    optimal_idx = np.argmax(f1_scores)
-    optimal_threshold = thresholds[optimal_idx] if optimal_idx < len(thresholds) else 0.5
+    
+    # Find best threshold with minimum recall of 0.5 for fraud detection
+    valid_indices = np.where(recall >= 0.5)[0]
+    if len(valid_indices) > 0:
+        # Among valid indices, choose the one with best F1
+        best_valid_idx = valid_indices[np.argmax(f1_scores[valid_indices])]
+        optimal_threshold = thresholds[best_valid_idx] if best_valid_idx < len(thresholds) else 0.5
+    else:
+        # If no threshold gives 50% recall, use the one with best F1
+        optimal_idx = np.argmax(f1_scores)
+        optimal_threshold = thresholds[optimal_idx] if optimal_idx < len(thresholds) else 0.5
     
     # Binary predictions with optimal threshold
     y_pred = (predictions > optimal_threshold).astype(int)
@@ -104,7 +125,7 @@ def main():
     X_test = test_df[feature_cols]
     y_test = test_df['is_fraud']
     
-    # Split training data for validation
+    # Split training data for validation - ensure we have enough fraud cases
     X_train, X_val, y_train, y_val = train_test_split(
         X_train_full, y_train_full, 
         test_size=0.2, 
@@ -112,14 +133,36 @@ def main():
         stratify=y_train_full
     )
     
-    print(f"\nTraining samples: {len(X_train)} ({y_train.sum()} fraud)")
+    # Manual undersampling to avoid dependency issues
+    # Get indices of fraud and non-fraud samples
+    fraud_indices = np.where(y_train == 1)[0]
+    non_fraud_indices = np.where(y_train == 0)[0]
+    
+    # Undersample non-fraud to get 10:1 ratio
+    n_fraud = len(fraud_indices)
+    n_non_fraud_sample = min(n_fraud * 10, len(non_fraud_indices))
+    
+    # Random sample from non-fraud
+    np.random.seed(42)
+    sampled_non_fraud_indices = np.random.choice(non_fraud_indices, n_non_fraud_sample, replace=False)
+    
+    # Combine indices
+    balanced_indices = np.concatenate([fraud_indices, sampled_non_fraud_indices])
+    np.random.shuffle(balanced_indices)
+    
+    # Create balanced dataset
+    X_train_balanced = X_train.iloc[balanced_indices]
+    y_train_balanced = y_train.iloc[balanced_indices]
+    
+    print(f"\nOriginal training samples: {len(X_train)} ({y_train.sum()} fraud)")
+    print(f"Balanced training samples: {len(X_train_balanced)} ({y_train_balanced.sum()} fraud)")
     print(f"Validation samples: {len(X_val)} ({y_val.sum()} fraud)")
     
-    # Train model
-    model = train_lightgbm_model(X_train, y_train, X_val, y_val)
+    # Train model with balanced data
+    model = train_lightgbm_model(X_train_balanced, y_train_balanced, X_val, y_val)
     
-    # Evaluate on different sets
-    train_auc, _, _ = evaluate_model(model, X_train, y_train, "Training Set")
+    # Evaluate on different sets (use original unbalanced data for evaluation)
+    train_auc, _, _ = evaluate_model(model, X_train, y_train, "Training Set (Original)")
     val_auc, optimal_threshold, _ = evaluate_model(model, X_val, y_val, "Validation Set")
     test_auc, _, test_predictions = evaluate_model(model, X_test, y_test, "Test Set (Last Year)")
     

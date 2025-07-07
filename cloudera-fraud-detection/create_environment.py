@@ -33,8 +33,9 @@ def create_environment():
     # Get current directory
     current_dir = os.getcwd()
     
-    # Path to requirements.txt file
+    # Path to requirements files
     requirements_file = os.path.join(current_dir, "requirements.txt")
+    requirements_lock = os.path.join(current_dir, "requirements.lock")
     
     # Check if requirements.txt exists
     if not os.path.exists(requirements_file):
