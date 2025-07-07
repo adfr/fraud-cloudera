@@ -35,6 +35,7 @@ venv/
 ENV/
 env/
 .venv/
+project_env/
 
 # IDE files
 .idea/
@@ -48,8 +49,8 @@ logs/
 *.log
 
 # Data and model files (keep these in version control if small enough)
-# data/
-# models/
+data/
+models/
 
 # Output files
 reports/

@@ -14,12 +14,8 @@ import subprocess
 # Load environment variables from .env file
 from dotenv import load_dotenv
 
-# Get template directory from environment or use default
-template_dir = os.environ.get("TEMPLATE_DIR", "template")
-print(f"Using template directory: {template_dir}")
-
 # Load environment variables from .env file
-env_path = os.path.join(template_dir, ".env")
+env_path = os.path.join(os.getcwd(), ".env")
 if os.path.exists(env_path):
     load_dotenv(dotenv_path=env_path)
 else:
@@ -37,24 +33,11 @@ def load_config():
     # Get the directory where this script is located
     script_dir = os.getcwd()
     
-    # Try different possible paths for the config file
-    possible_paths = [
-        # Direct path (when run from root of project)
-        os.path.join(script_dir, "config", "jobs_config.yaml"),
-        # When run from inside a cloned directory
-        os.path.join(script_dir, template_dir, "config", "jobs_config.yaml"),
-        # When the script is in a subdirectory
-        os.path.join(os.path.dirname(script_dir), "config", "jobs_config.yaml"),
-    ]
+    # Config file is in the config directory relative to current working directory
+    config_path = os.path.join(script_dir, "config", "jobs_config.yaml")
     
-    config_path = None
-    for path in possible_paths:
-        if os.path.exists(path):
-            config_path = path
-            break
-    
-    if not config_path:
-        raise FileNotFoundError(f"Could not find jobs_config.yaml in any of these locations: {possible_paths}")
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Could not find jobs_config.yaml at: {config_path}")
     
     print(f"Loading config from: {config_path}")
     
@@ -63,25 +46,6 @@ def load_config():
     
     return config['jobs']
 
-def adjust_job_paths(job_config):
-    """
-    Adjust job paths to use the template directory from environment variable
-    
-    Args:
-        job_config (dict): The job configuration dictionary
-        
-    Returns:
-        dict: The updated job configuration
-    """
-    # Make a copy to avoid modifying the original
-    config = dict(job_config)
-    
-    # Only modify paths that start with 'template/'
-    if 'script' in config and config['script'].startswith('template/'):
-        # Replace the hardcoded 'template/' with the actual template directory
-        config['script'] = config['script'].replace('template/', f"{template_dir}/")
-    
-    return config
 
 def setup_jobs():
     """
@@ -124,7 +88,7 @@ def setup_jobs():
     # Process create_env job first if it exists
     if "create_env" in JOBS_CONFIG:
         job_key = "create_env"
-        job_config = adjust_job_paths(JOBS_CONFIG[job_key])
+        job_config = JOBS_CONFIG[job_key]
         
         # Create and run the environment setup job
         print(f"Creating and running environment setup job: {job_config['name']}")
@@ -160,10 +124,6 @@ def setup_jobs():
         if "environment" in job_config:
             job_body.environment = job_config["environment"]
         
-        # Add TEMPLATE_DIR to environment variables
-        if not hasattr(job_body, 'environment'):
-            job_body.environment = {}
-        job_body.environment['TEMPLATE_DIR'] = template_dir
         
         try:
             # Create the job
@@ -181,7 +141,7 @@ def setup_jobs():
         if job_key == "create_env":
             continue  # Skip as we've already processed it
             
-        job_config = adjust_job_paths(JOBS_CONFIG[job_key])
+        job_config = JOBS_CONFIG[job_key]
         
         print(f"Creating job: {job_config['name']}")
         
@@ -219,10 +179,6 @@ def setup_jobs():
         if "environment" in job_config:
             job_body.environment = job_config["environment"]
         
-        # Add TEMPLATE_DIR to environment variables
-        if not hasattr(job_body, 'environment'):
-            job_body.environment = {}
-        job_body.environment['TEMPLATE_DIR'] = template_dir
         
         # Set attachments if provided
         if "attachments" in job_config:

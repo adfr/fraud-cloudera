@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Example job script that activates a Python environment and runs another script
+Job script to run transaction scoring for fraud detection
 """
 
 import subprocess
@@ -17,31 +17,30 @@ logger = logging.getLogger(__name__)
 
 def main():
     """
-    Main function to activate environment and run hello_world.py
+    Main function to run score_transactions.py
     """
     try:
-        # Get template directory name from environment variable or use default
-        template_dir = os.environ.get("TEMPLATE_DIR", "template")
-        logger.info(f"Using template directory: {template_dir}")
+        # Get the directory where this script is located
+        script_dir = os.path.dirname(os.path.abspath(__file__))
         
-        # Hard-coded path to the hello_world.py script
-        hello_world_script = os.path.join(template_dir, "scripts", "hello_world.py")
+        # Path to the score_transactions.py script
+        score_script = os.path.join(script_dir, "score_transactions.py")
         
         # Check if the script exists
-        if not os.path.exists(hello_world_script):
-            raise FileNotFoundError(f"Could not find hello_world.py at {hello_world_script}")
+        if not os.path.exists(score_script):
+            raise FileNotFoundError(f"Could not find score_transactions.py at {score_script}")
         
         # Get path to the project_env Python executable
-        # Use current working directory instead of __file__ which doesn't work in IPython
-        project_root = os.getcwd()
+        project_root = os.path.dirname(script_dir)  # Go up one level from scripts/
         env_python = os.path.join(
             project_root, 
             "project_env",
             "bin",
             "python"
         )
-        # Log the Python executable path that will be used
+        
         logger.info(f"Using Python executable: {env_python}")
+        
         # Check if the environment exists
         if not os.path.exists(env_python):
             logger.warning(f"Virtual environment not found at {env_python}")
@@ -49,7 +48,7 @@ def main():
             env_python = sys.executable
         
         # Command to run script with project_env Python
-        cmd = f"{env_python} {hello_world_script} --name 'CML User' --repeat 3"
+        cmd = f"{env_python} {score_script}"
         
         logger.info(f"Running command: {cmd}")
         
@@ -71,7 +70,7 @@ def main():
             logger.warning("Command stderr:")
             print(process.stderr)
             
-        logger.info("Script execution completed successfully")
+        logger.info("Transaction scoring completed successfully")
         
     except subprocess.CalledProcessError as e:
         logger.error(f"Error executing command: {e}")
