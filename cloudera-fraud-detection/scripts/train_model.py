@@ -2,13 +2,15 @@
 """
 Train LightGBM model for credit card fraud detection.
 """
+import os
+os.environ['MPLBACKEND'] = 'Agg'  # Set before importing matplotlib
+
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import roc_auc_score, precision_recall_curve, classification_report
 import joblib
-import os
 import json
 from datetime import datetime
 
