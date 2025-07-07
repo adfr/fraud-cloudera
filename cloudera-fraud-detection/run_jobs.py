@@ -259,8 +259,8 @@ def run_jobs_sequentially(client, project_id, job_id_map):
                     status = latest_run.status
                     print(f"Job {job_key} status: {status}")
                     
-                    if status in ["succeeded", "failed", "stopped"]:
-                        if status == "succeeded":
+                    if status in ["ENGINE_SUCCEEDED", "ENGINE_FAILED", "ENGINE_STOPPED"]:
+                        if status == "ENGINE_SUCCEEDED":
                             print(f"Job {job_key} completed successfully")
                         else:
                             print(f"Job {job_key} failed with status: {status}")
