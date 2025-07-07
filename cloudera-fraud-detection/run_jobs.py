@@ -226,7 +226,7 @@ def run_jobs_sequentially(client, project_id, job_id_map):
     import time
     
     # Define job order based on dependencies
-    job_order = ["create_env", "feature_engineering", "train_model", "score_transactions"]
+    job_order = ["create_env", "feature_engineering", "train_model", "score_transactions", "deploy_model"]
     
     for job_key in job_order:
         if job_key not in job_id_map:

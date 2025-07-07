@@ -51,3 +51,16 @@ jobs:
     dependencies:
       - train_model
 
+  deploy_model:
+    name: Deploy Fraud Detection Model to CML
+    script: fraud-cloudera/cloudera-fraud-detection/deploy_model.py
+    kernel: python3
+    runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.10-standard:2025.01.2-b15
+    cpu: 1
+    memory: 2
+    timeout: 2700  # 45 minutes
+    environment: {}
+    arguments: ""
+    dependencies:
+      - train_model
+
