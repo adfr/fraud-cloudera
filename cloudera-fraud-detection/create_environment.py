@@ -34,8 +34,8 @@ def create_environment():
     current_dir = os.getcwd()
     
     # Path to requirements files
-    requirements_file = os.path.join(current_dir, "requirements.txt")
-    requirements_lock = os.path.join(current_dir, "requirements.lock")
+    requirements_file = "fraud-cloudera/cloudera-fraud-detection/requirements.txt"
+    requirements_lock = "fraud-cloudera/cloudera-fraud-detection/requirements.lock"
     
     # Check if requirements.txt exists
     if not os.path.exists(requirements_file):

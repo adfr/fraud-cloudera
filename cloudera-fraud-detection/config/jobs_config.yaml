@@ -16,7 +16,7 @@ jobs:
 
   feature_engineering:
     name: Feature Engineering for Fraud Detection
-    script: fraud-cloudera/cloudera-fraud-detection/scripts/feature_engineering.py
+    script: fraud-cloudera/cloudera-fraud-detection/scripts/run_feature_engineering.py
     kernel: python3
     runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.10-standard:2025.01.2-b15
     cpu: 2
@@ -27,7 +27,7 @@ jobs:
 
   train_model:
     name: Train LightGBM Fraud Detection Model
-    script: fraud-cloudera/cloudera-fraud-detection/scripts/train_model.py
+    script: fraud-cloudera/cloudera-fraud-detection/scripts/run_train_model.py
     kernel: python3
     runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.10-standard:2025.01.2-b15
     cpu: 4
@@ -40,7 +40,7 @@ jobs:
 
   score_transactions:
     name: Score Last Year Transactions
-    script: fraud-cloudera/cloudera-fraud-detection/scripts/score_transactions.py
+    script: fraud-cloudera/cloudera-fraud-detection/scripts/run_score_transactions.py
     kernel: python3
     runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.10-standard:2025.01.2-b15
     cpu: 2

@@ -21,19 +21,18 @@ def main():
     """
     try:
         # Get the directory where this script is located
-        script_dir = os.path.dirname(os.path.abspath(__file__))
+        #script_dir = os.path.dirname(os.path.abspath(__file__))
         
         # Path to the train_model.py script
-        train_model_script = os.path.join(script_dir, "train_model.py")
+        train_model_script = "fraud-cloudera/cloudera-fraud-detection/scripts/train_model.py"
         
         # Check if the script exists
         if not os.path.exists(train_model_script):
             raise FileNotFoundError(f"Could not find train_model.py at {train_model_script}")
         
         # Get path to the project_env Python executable
-        project_root = os.path.dirname(script_dir)  # Go up one level from scripts/
+        #project_root = os.path.dirname(script_dir)  # Go up one level from scripts/
         env_python = os.path.join(
-            project_root, 
             "project_env",
             "bin",
             "python"

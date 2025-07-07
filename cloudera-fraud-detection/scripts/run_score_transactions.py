@@ -21,19 +21,18 @@ def main():
     """
     try:
         # Get the directory where this script is located
-        script_dir = os.path.dirname(os.path.abspath(__file__))
+        #script_dir = os.path.dirname(os.path.abspath(__file__))
         
         # Path to the score_transactions.py script
-        score_script = os.path.join(script_dir, "score_transactions.py")
+        score_script = "fraud-cloudera/cloudera-fraud-detection/scripts/score_transactions.py"
         
         # Check if the script exists
         if not os.path.exists(score_script):
             raise FileNotFoundError(f"Could not find score_transactions.py at {score_script}")
         
         # Get path to the project_env Python executable
-        project_root = os.path.dirname(script_dir)  # Go up one level from scripts/
+        #project_root = os.path.dirname(script_dir)  # Go up one level from scripts/
         env_python = os.path.join(
-            project_root, 
             "project_env",
             "bin",
             "python"

@@ -21,19 +21,18 @@ def main():
     """
     try:
         # Get the directory where this script is located
-        script_dir = os.path.dirname(os.path.abspath(__file__))
+        #script_dir = os.path.dirname(os.path.abspath(__file__))
         
         # Path to the feature_engineering.py script
-        feature_eng_script = os.path.join(script_dir, "feature_engineering.py")
+        feature_eng_script = "fraud-cloudera/cloudera-fraud-detection/scripts/feature_engineering.py"
         
         # Check if the script exists
         if not os.path.exists(feature_eng_script):
             raise FileNotFoundError(f"Could not find feature_engineering.py at {feature_eng_script}")
         
         # Get path to the project_env Python executable
-        project_root = os.path.dirname(script_dir)  # Go up one level from scripts/
+        #project_root = os.path.dirname(script_dir)  # Go up one level from scripts/
         env_python = os.path.join(
-            project_root, 
             "project_env",
             "bin",
             "python"

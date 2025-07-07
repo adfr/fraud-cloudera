@@ -80,7 +80,7 @@ def main():
     print("Loading credit card transaction data...")
     
     # Read the CSV file
-    csv_path = '../card_transaction.v1.csv'
+    csv_path = 'card_transaction_sample.csv'
     if not os.path.exists(csv_path):
         csv_path = 'card_transaction.v1.csv'
     
@@ -91,7 +91,7 @@ def main():
     df_features, feature_cols = engineer_features(df)
     
     # Save processed data
-    output_path = 'data/processed_transactions.csv'
+    output_path = 'fraud-cloudera/cloudera-fraud-detection/data/processed_transactions.csv'
     os.makedirs('data', exist_ok=True)
     
     # Save full dataset with features
@@ -99,7 +99,7 @@ def main():
     print(f"Saved processed data to {output_path}")
     
     # Save feature list
-    with open('data/feature_columns.txt', 'w') as f:
+    with open('fraud-cloudera/cloudera-fraud-detection/data/feature_columns.txt', 'w') as f:
         f.write('\n'.join(feature_cols))
     print(f"Saved {len(feature_cols)} feature names to data/feature_columns.txt")
     
