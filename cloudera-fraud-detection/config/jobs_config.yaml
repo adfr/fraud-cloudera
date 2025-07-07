@@ -5,9 +5,9 @@
 jobs:
   create_env:
     name: Create Python Environment
-    script: create_environment.py
+    script: fraud-cloudera/cloudera-fraud-detection/create_environment.py
     kernel: python3
-    runtime_id: "docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.11-standard:2025.01.3-b8"
+    runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.10-standard:2025.01.2-b15
     cpu: 1
     memory: 2
     timeout: 1800  # 30 minutes
@@ -16,9 +16,9 @@ jobs:
 
   feature_engineering:
     name: Feature Engineering for Fraud Detection
-    script: scripts/feature_engineering.py
+    script: fraud-cloudera/cloudera-fraud-detection/scripts/feature_engineering.py
     kernel: python3
-    runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.11-standard:2025.01.3-b8
+    runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.10-standard:2025.01.2-b15
     cpu: 2
     memory: 4
     timeout: 1800  # 30 minutes
@@ -27,9 +27,9 @@ jobs:
 
   train_model:
     name: Train LightGBM Fraud Detection Model
-    script: scripts/train_model.py
+    script: fraud-cloudera/cloudera-fraud-detection/scripts/train_model.py
     kernel: python3
-    runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.11-standard:2025.01.3-b8
+    runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.10-standard:2025.01.2-b15
     cpu: 4
     memory: 8
     timeout: 3600  # 60 minutes
@@ -40,9 +40,9 @@ jobs:
 
   score_transactions:
     name: Score Last Year Transactions
-    script: scripts/score_transactions.py
+    script: fraud-cloudera/cloudera-fraud-detection/scripts/score_transactions.py
     kernel: python3
-    runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.11-standard:2025.01.3-b8
+    runtime_id: docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.10-standard:2025.01.2-b15
     cpu: 2
     memory: 4
     timeout: 1800  # 30 minutes

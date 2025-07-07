@@ -15,7 +15,7 @@ import subprocess
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-env_path = os.path.join(os.getcwd(), ".env")
+env_path = "fraud-cloudera/cloudera-fraud-detection/.env"
 if os.path.exists(env_path):
     load_dotenv(dotenv_path=env_path)
 else:
@@ -34,7 +34,7 @@ def load_config():
     script_dir = os.getcwd()
     
     # Config file is in the config directory relative to current working directory
-    config_path = os.path.join(script_dir, "config", "jobs_config.yaml")
+    config_path = os.path.join(script_dir, "fraud-cloudera" , "cloudera-fraud-detection","config", "jobs_config.yaml")
     
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Could not find jobs_config.yaml at: {config_path}")
