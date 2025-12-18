@@ -37,6 +37,17 @@ import sys
 import subprocess
 import json
 
+# Load .env file if it exists
+try:
+    from dotenv import load_dotenv
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_dir = os.path.dirname(script_dir)
+    env_path = os.path.join(project_dir, ".env")
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
+except ImportError:
+    pass  # dotenv not installed, skip
+
 
 def load_kaggle_credentials_early():
     """
@@ -44,8 +55,15 @@ def load_kaggle_credentials_early():
     The kaggle package auto-authenticates on import, so we must set
     environment variables first.
 
-    Supports both JSON and YAML formats.
+    Checks in order:
+    1. Environment variables (KAGGLE_USERNAME, KAGGLE_KEY) - from .env or shell
+    2. kaggle.json / kaggle.yaml files in various locations
     """
+    # Check if already set via environment (from .env or shell)
+    if os.environ.get('KAGGLE_USERNAME') and os.environ.get('KAGGLE_KEY'):
+        print("Using Kaggle credentials from environment variables")
+        return True
+
     # Get the script's directory and project root
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_dir = os.path.dirname(script_dir)
