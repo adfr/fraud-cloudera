@@ -50,7 +50,6 @@ logs/
 
 # Data and model files (keep these in version control if small enough)
 data/
-models/
 
 # Output files
 reports/
