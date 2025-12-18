@@ -80,7 +80,12 @@ def predict(args):
         row = {f: args.get(f, 0.0) for f in feats}
         df = pd.DataFrame([row])
 
-        prob = float(model.predict_proba(df)[0, 1])
+        # Handle both sklearn wrapper (predict_proba) and raw Booster (predict)
+        if hasattr(model, 'predict_proba'):
+            prob = float(model.predict_proba(df)[0, 1])
+        else:
+            # Raw LightGBM Booster - predict returns probabilities directly
+            prob = float(model.predict(df)[0])
         thresh = meta.get("optimal_threshold", 0.5) if meta else 0.5
 
         return {
