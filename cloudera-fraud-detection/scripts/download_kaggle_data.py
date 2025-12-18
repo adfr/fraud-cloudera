@@ -34,6 +34,29 @@ Usage:
 
 import os
 import sys
+import subprocess
+
+# Auto-install required packages
+def install_package(package):
+    """Install a package using pip."""
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", package])
+
+# Check and install required packages
+required_packages = {
+    'pandas': 'pandas',
+    'numpy': 'numpy',
+    'yaml': 'pyyaml',
+    'kaggle': 'kaggle',
+    'sklearn': 'scikit-learn',
+}
+
+for module, package in required_packages.items():
+    try:
+        __import__(module)
+    except ImportError:
+        print(f"Installing {package}...")
+        install_package(package)
+
 import argparse
 import pandas as pd
 import numpy as np
@@ -41,12 +64,9 @@ from datetime import datetime
 import json
 import zipfile
 import shutil
+import yaml
 
-try:
-    import yaml
-    YAML_AVAILABLE = True
-except ImportError:
-    YAML_AVAILABLE = False
+YAML_AVAILABLE = True
 
 
 DATASET_NAME = "mlg-ulb/creditcardfraud"
