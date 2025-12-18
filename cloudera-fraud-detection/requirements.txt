@@ -8,3 +8,7 @@ flask>=2.0.0
 lightgbm>=3.3.0
 joblib>=1.2.0
 requests>=2.28.0
+
+# CrewAI for multi-agent fraud analysis
+crewai>=0.28.0
+crewai-tools>=0.1.0

@@ -6,6 +6,7 @@ A comprehensive credit card fraud detection system using LightGBM, designed for 
 
 - **LightGBM-based fraud detection** with batch and real-time feature engineering
 - **Transaction rating system** (A+ to F grades) with detailed risk breakdown
+- **CrewAI multi-agent analysis** for deep fraud investigation
 - **NiFi integration** for real-time transaction processing
 - **Cloudera AI deployment** ready with REST API
 - **Synthetic data generation** for training and testing
@@ -40,6 +41,14 @@ A comprehensive credit card fraud detection system using LightGBM, designed for 
 
 ```
 cloudera-fraud-detection/
+├── agents/                          # CrewAI multi-agent system
+│   ├── __init__.py
+│   ├── query_agent.py              # Transaction data gathering
+│   ├── pattern_agent.py            # Fraud pattern matching
+│   ├── merchant_agent.py           # Online merchant research
+│   ├── assessment_agent.py         # Report generation
+│   ├── fraud_crew.py               # Crew orchestration
+│   └── alert_pipeline.py           # Alert processing pipeline
 ├── scripts/
 │   ├── features/                    # Feature engineering modules
 │   │   ├── __init__.py
@@ -169,6 +178,97 @@ Transactions receive a letter grade (A+ to F) based on multiple risk factors:
 - **Device Risk** (7%): Transaction type (chip vs. swipe vs. online)
 - **Behavioral Risk** (5%): Deviation from user patterns
 
+## CrewAI Multi-Agent Fraud Analysis
+
+When a high-risk alert is triggered, a CrewAI crew of specialized agents performs deep analysis:
+
+### Agent Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     CrewAI Fraud Analysis                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  1. Query Agent ─────────────────────────────────────────────────   │
+│     │  Gathers transaction data, user history, spending profile     │
+│     ▼                                                                │
+│  2. Pattern Matching Agent ─────────────────────────────────────    │
+│     │  Matches against known fraud patterns                          │
+│     │  (Card testing, Account takeover, Velocity abuse, etc.)       │
+│     ▼                                                                │
+│  3. Merchant Research Agent ────────────────────────────────────    │
+│     │  Searches online for merchant compromises                      │
+│     │  Checks breach databases, fraud reports                        │
+│     ▼                                                                │
+│  4. Assessment Writer Agent ────────────────────────────────────    │
+│        Synthesizes all findings into comprehensive report            │
+│                                                                       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Using the Fraud Analysis Crew
+
+```python
+from agents import FraudAnalysisCrew
+
+# Create crew
+crew = FraudAnalysisCrew()
+
+# Analyze an alert
+alert_data = {
+    "transaction_id": "TXN_001",
+    "User": 123,
+    "Amount": "$2,500.00",
+    "Use Chip": "Online Transaction",
+    "Merchant Name": "ELECTRONICS_STORE",
+    "MCC": 5732,
+    "fraud_probability": 0.78,
+    "risk_level": "High"
+}
+
+# Full analysis (uses LLM)
+result = crew.analyze_alert(alert_data)
+
+# Quick analysis (no LLM required)
+quick_result = crew.quick_analyze(alert_data)
+```
+
+### Alert Pipeline Integration
+
+```python
+from agents import AlertPipeline
+
+# Create pipeline
+pipeline = AlertPipeline(analysis_threshold=0.5)
+
+# Process transaction result
+alert = pipeline.process_transaction_result(transaction, model_result)
+
+# Analyze pending alerts
+results = pipeline.analyze_pending_alerts(max_alerts=10)
+```
+
+### Fraud Patterns Detected
+
+| Pattern | Description | Indicators |
+|---------|-------------|------------|
+| Card Not Present | Online fraud with stolen cards | High-value online, electronics/gift cards |
+| Card Testing | Multiple small transactions | Rapid succession, low amounts |
+| Account Takeover | Compromised account | Sudden pattern change, new location |
+| Velocity Abuse | High transaction frequency | >5/hour, >20/day |
+| Geographic Impossibility | Impossible travel | Different cities within hours |
+| High Risk Merchant | Known risky categories | Jewelry, gambling, electronics |
+
+### Configuration
+
+```bash
+# For full analysis with LLM
+export OPENAI_API_KEY=your_key_here
+
+# For web search (merchant research)
+export SERPER_API_KEY=your_key_here
+```
+
 ## NiFi Integration
 
 ### Import the Flow
@@ -296,6 +396,10 @@ scikit-learn>=1.0.0
 lightgbm>=3.3.0
 joblib>=1.2.0
 requests>=2.28.0
+
+# CrewAI for multi-agent analysis
+crewai>=0.28.0
+crewai-tools>=0.1.0
 ```
 
 ## Testing
