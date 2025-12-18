@@ -24,14 +24,17 @@ def load_model():
 
     if model is None:
         try:
+            # Get the directory where this script lives
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+
             # Try to load production model first
-            model_path = "fraud-cloudera/cloudera-fraud-detection/models/fraud_detection_lgb.pkl"
-            metadata_path = "fraud-cloudera/cloudera-fraud-detection/models/model_metadata.json"
+            model_path = os.path.join(script_dir, "models", "fraud_detection_lgb.pkl")
+            metadata_path = os.path.join(script_dir, "models", "model_metadata.json")
 
             if not os.path.exists(model_path):
                 # Fallback to test model
-                model_path = "fraud-cloudera/cloudera-fraud-detection/models/test_fraud_model.pkl"
-                metadata_path = "fraud-cloudera/cloudera-fraud-detection/models/test_model_metadata.pkl"
+                model_path = os.path.join(script_dir, "models", "test_fraud_model.pkl")
+                metadata_path = os.path.join(script_dir, "models", "test_model_metadata.pkl")
 
             if not os.path.exists(model_path):
                 raise FileNotFoundError("No trained model found. Please train a model first.")
