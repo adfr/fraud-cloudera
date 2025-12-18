@@ -2,6 +2,10 @@
 """
 Transaction Generator for NiFi Integration
 Generates transactions manually or automatically and sends them to NiFi/ML model.
+
+Supports two generation modes:
+1. Rule-based: Simple patterns for normal/suspicious transactions
+2. SDV-based: Statistically realistic transactions learned from Kaggle data
 """
 
 import json
@@ -11,6 +15,10 @@ import argparse
 from datetime import datetime
 import time
 import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class TransactionGenerator:
@@ -300,18 +308,94 @@ class TransactionGenerator:
                     print(f"\n✓ {risk} Risk - Probability: {prob:.2%} - Rating: {rating}")
 
 
+class SDVTransactionGenerator:
+    """
+    SDV-powered realistic transaction generator.
+
+    Uses Synthetic Data Vault to generate statistically realistic transactions
+    based on patterns learned from the Kaggle Credit Card Fraud dataset.
+    """
+
+    def __init__(self, model_endpoint=None, nifi_endpoint=None):
+        self.model_endpoint = model_endpoint
+        self.nifi_endpoint = nifi_endpoint
+        self.sdv_generator = None
+        self._load_sdv()
+
+    def _load_sdv(self):
+        """Load SDV generator if available."""
+        try:
+            from scripts.sdv_transaction_generator import SDVTransactionGenerator as SDVGen
+            self.sdv_generator = SDVGen()
+            if not self.sdv_generator.load():
+                print("Warning: SDV model not trained. Using fallback generation.")
+                print("Train with: python scripts/sdv_transaction_generator.py train")
+                self.sdv_generator = None
+        except ImportError:
+            print("Warning: SDV not available. Using rule-based generation.")
+            self.sdv_generator = None
+
+    def generate_transaction(self, is_fraud: bool = False) -> dict:
+        """Generate a realistic transaction using SDV."""
+        if self.sdv_generator:
+            return self.sdv_generator.generate_single(is_fraud=is_fraud)
+        else:
+            # Fallback to rule-based
+            fallback = TransactionGenerator(self.model_endpoint, self.nifi_endpoint)
+            if is_fraud:
+                return fallback.generate_suspicious_transaction()
+            return fallback.generate_normal_transaction()
+
+    def generate_batch(self, count: int, fraud_rate: float = 0.01) -> list:
+        """Generate a batch of realistic transactions."""
+        if self.sdv_generator:
+            df = self.sdv_generator.generate(
+                n_samples=count,
+                fraud_rate=fraud_rate
+            )
+            return df.to_dict('records')
+        else:
+            # Fallback
+            fallback = TransactionGenerator(self.model_endpoint, self.nifi_endpoint)
+            transactions = []
+            for _ in range(count):
+                if random.random() < fraud_rate:
+                    transactions.append(fallback.generate_suspicious_transaction())
+                else:
+                    transactions.append(fallback.generate_normal_transaction())
+            return transactions
+
+    def stream_to_model(self, rate: float = 1.0, fraud_rate: float = 0.01,
+                        duration: int = None, verbose: bool = True):
+        """Stream realistic transactions to model endpoint."""
+        if self.sdv_generator and self.model_endpoint:
+            self.sdv_generator.stream_transactions(
+                model_endpoint=self.model_endpoint,
+                nifi_endpoint=self.nifi_endpoint,
+                rate=rate,
+                fraud_rate=fraud_rate,
+                duration=duration,
+                verbose=verbose
+            )
+        else:
+            print("SDV generator or model endpoint not available")
+            print("Make sure SDV is trained and model endpoint is specified")
+
+
 def main():
     parser = argparse.ArgumentParser(description='Generate and test transactions for fraud detection')
     parser.add_argument('--model-endpoint', '-m', help='Cloudera ML model endpoint URL')
     parser.add_argument('--nifi-endpoint', '-n', help='NiFi HTTP input endpoint URL')
-    parser.add_argument('--mode', '-M', choices=['interactive', 'normal', 'suspicious', 'batch'],
-                        default='interactive', help='Generation mode')
+    parser.add_argument('--mode', '-M', choices=['interactive', 'normal', 'suspicious', 'batch', 'sdv', 'sdv-stream'],
+                        default='interactive', help='Generation mode (sdv modes use realistic data)')
     parser.add_argument('--count', '-c', type=int, default=1, help='Number of transactions (for batch mode)')
     parser.add_argument('--delay', '-d', type=float, default=1.0, help='Delay between transactions in seconds')
     parser.add_argument('--user', '-u', type=int, help='Specific user ID')
     parser.add_argument('--fraud-type', '-f', choices=['high_amount', 'unusual_time', 'online_burst', 'unusual_merchant', 'random'],
                         default='random', help='Fraud type for suspicious transactions')
+    parser.add_argument('--fraud-rate', '-r', type=float, default=0.01, help='Fraud rate for SDV generation (0.0-1.0)')
     parser.add_argument('--output', '-o', help='Output file for transactions (JSON)')
+    parser.add_argument('--duration', type=int, help='Duration in seconds for streaming mode')
 
     args = parser.parse_args()
 
@@ -431,6 +515,56 @@ def main():
 
                 if i < args.count - 1:
                     time.sleep(args.delay)
+
+        elif args.mode == 'sdv':
+            # SDV-based realistic transaction generation
+            print(f"Generating {args.count} realistic transactions using SDV...")
+            print(f"Fraud rate: {args.fraud_rate*100:.1f}%")
+
+            sdv_gen = SDVTransactionGenerator(
+                model_endpoint=args.model_endpoint,
+                nifi_endpoint=args.nifi_endpoint
+            )
+
+            transactions = sdv_gen.generate_batch(args.count, args.fraud_rate)
+
+            fraud_count = sum(1 for t in transactions if t.get('is_fraud', 0) == 1)
+            print(f"\nGenerated {len(transactions)} transactions ({fraud_count} fraud)")
+
+            # Send to model if endpoint provided
+            if args.model_endpoint:
+                print(f"\nSending to model: {args.model_endpoint}")
+                for i, trans in enumerate(transactions):
+                    result = generator.send_to_model(trans)
+                    if result:
+                        results.append({**trans, **result})
+                    if (i + 1) % 10 == 0:
+                        print(f"Processed {i + 1}/{len(transactions)}")
+                    if i < len(transactions) - 1:
+                        time.sleep(args.delay)
+
+            # Show sample
+            print("\nSample transactions:")
+            for t in transactions[:5]:
+                fraud_label = "FRAUD" if t.get('is_fraud', 0) == 1 else "LEGIT"
+                amount = t.get('Amount', 0)
+                print(f"  {t.get('transaction_id', 'N/A')}: {fraud_label} ${amount:.2f}")
+
+        elif args.mode == 'sdv-stream':
+            # SDV-based streaming mode
+            print("Starting SDV-based transaction streaming...")
+
+            sdv_gen = SDVTransactionGenerator(
+                model_endpoint=args.model_endpoint,
+                nifi_endpoint=args.nifi_endpoint
+            )
+
+            sdv_gen.stream_to_model(
+                rate=1.0 / args.delay,  # Convert delay to rate
+                fraud_rate=args.fraud_rate,
+                duration=args.duration,
+                verbose=True
+            )
 
     except KeyboardInterrupt:
         print("\n\nInterrupted by user")

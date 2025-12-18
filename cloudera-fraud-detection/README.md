@@ -10,6 +10,7 @@ A comprehensive credit card fraud detection system using LightGBM, designed for 
 - **NiFi integration** for real-time transaction processing
 - **Cloudera AI deployment** ready with REST API
 - **Kaggle Credit Card Fraud Dataset** support (284K real transactions)
+- **SDV realistic transaction generation** for real-time evaluation
 - **Synthetic data generation** for training and testing
 
 ## Architecture
@@ -57,8 +58,11 @@ cloudera-fraud-detection/
 │   │   ├── realtime_features.py    # Real-time aggregation features
 │   │   └── feature_pipeline.py     # Combined feature pipeline
 │   ├── generate_training_data.py   # Synthetic data generator
+│   ├── download_kaggle_data.py     # Kaggle dataset downloader
 │   ├── train_model.py              # Original training script
 │   ├── train_model_v2.py           # Enhanced training with new features
+│   ├── train_kaggle_model.py       # Training for Kaggle dataset
+│   ├── sdv_transaction_generator.py # SDV realistic transaction generator
 │   ├── transaction_rating.py       # Transaction rating engine
 │   └── score_transactions.py       # Batch scoring script
 ├── nifi/
@@ -320,6 +324,91 @@ python nifi/transaction_generator.py --mode suspicious --fraud-type high_amount
 python nifi/transaction_generator.py --mode batch --count 100 -o transactions.json
 ```
 
+## SDV Realistic Transaction Generation
+
+Use **Synthetic Data Vault (SDV)** to generate statistically realistic transactions that maintain the same distributions and correlations as the Kaggle Credit Card Fraud dataset.
+
+### Why SDV?
+
+- **Realistic distributions**: Learns actual transaction patterns from real data
+- **Preserved correlations**: Maintains relationships between features
+- **Conditional generation**: Generate fraud vs legitimate transactions on demand
+- **Streaming support**: Real-time transaction generation for evaluation
+
+### Setup
+
+```bash
+# Install SDV
+pip install sdv
+
+# Train the synthesizer on Kaggle data (one-time)
+python scripts/sdv_transaction_generator.py train --data data/creditcard_fraud.csv
+```
+
+### Generate Transactions
+
+```bash
+# Generate 100 realistic transactions
+python scripts/sdv_transaction_generator.py generate --count 100
+
+# Generate with specific fraud rate (5%)
+python scripts/sdv_transaction_generator.py generate --count 100 --fraud-rate 0.05
+
+# Generate only fraud transactions
+python scripts/sdv_transaction_generator.py generate --count 50 --fraud-only
+
+# Save to file
+python scripts/sdv_transaction_generator.py generate --count 1000 -o synthetic_transactions.csv
+```
+
+### Stream to ML Model
+
+```bash
+# Stream realistic transactions to model endpoint
+python scripts/sdv_transaction_generator.py stream \
+    --model-endpoint http://localhost:8080/predict \
+    --rate 2.0 \
+    --fraud-rate 0.02 \
+    --duration 300
+```
+
+### Using with NiFi Transaction Generator
+
+The NiFi transaction generator now supports SDV mode:
+
+```bash
+# SDV batch generation
+python nifi/transaction_generator.py --mode sdv --count 100 --fraud-rate 0.01
+
+# SDV streaming to model
+python nifi/transaction_generator.py --mode sdv-stream \
+    --model-endpoint http://your-cml-model/predict \
+    --fraud-rate 0.02 \
+    --duration 60
+```
+
+### Evaluate Synthesizer Quality
+
+```bash
+# Compare synthetic data to original
+python scripts/sdv_transaction_generator.py evaluate --data data/creditcard_fraud.csv
+```
+
+### Model Types
+
+| Model | Speed | Quality | Use Case |
+|-------|-------|---------|----------|
+| `gaussian_copula` | Fast | Good | Quick testing, prototyping |
+| `ctgan` | Slow | Better | Production evaluation, benchmarking |
+
+```bash
+# Train with CTGAN for higher quality
+python scripts/sdv_transaction_generator.py train \
+    --data data/creditcard_fraud.csv \
+    --model-type ctgan \
+    --epochs 500
+```
+
 ### NiFi Flow Components
 
 1. **GenerateFlowFile**: Creates test transactions
@@ -428,6 +517,12 @@ requests>=2.28.0
 # CrewAI for multi-agent analysis
 crewai>=0.28.0
 crewai-tools>=0.1.0
+
+# Kaggle API for dataset download
+kaggle>=1.5.0
+
+# SDV for realistic synthetic transactions
+sdv>=1.10.0
 ```
 
 ## Testing

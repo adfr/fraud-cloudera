@@ -15,3 +15,6 @@ crewai-tools>=0.1.0
 
 # Kaggle API for dataset download
 kaggle>=1.5.0
+
+# SDV for realistic synthetic transaction generation
+sdv>=1.10.0
