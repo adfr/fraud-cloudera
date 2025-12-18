@@ -9,6 +9,7 @@ A comprehensive credit card fraud detection system using LightGBM, designed for 
 - **CrewAI multi-agent analysis** for deep fraud investigation
 - **NiFi integration** for real-time transaction processing
 - **Cloudera AI deployment** ready with REST API
+- **Kaggle Credit Card Fraud Dataset** support (284K real transactions)
 - **Synthetic data generation** for training and testing
 
 ## Architecture
@@ -91,7 +92,30 @@ This will:
 - Demonstrate transaction rating
 - Simulate NiFi transaction flow
 
-### 2. Generate Training Data
+### 2. Use Kaggle Credit Card Fraud Dataset (Recommended)
+
+Download and train on the real Kaggle dataset (284,807 transactions):
+
+```bash
+# Setup Kaggle API (one-time)
+# 1. Create account at kaggle.com
+# 2. Go to Settings -> API -> Create New Token
+# 3. Save kaggle.json to ~/.kaggle/
+
+# Download dataset
+python scripts/download_kaggle_data.py
+
+# Train model
+python scripts/train_kaggle_model.py
+```
+
+**Dataset Statistics:**
+- 284,807 transactions from European cardholders
+- 492 fraud cases (0.172% fraud rate)
+- Features: V1-V28 (PCA), Time, Amount
+- Real-world class imbalance
+
+### 3. Generate Synthetic Training Data (Alternative)
 
 ```bash
 python scripts/generate_training_data.py
@@ -104,9 +128,13 @@ Generates synthetic credit card transactions with realistic fraud patterns:
 - Rapid succession fraud
 - Online purchase bursts
 
-### 3. Train the Model
+### 4. Train the Model
 
 ```bash
+# For Kaggle dataset
+python scripts/train_kaggle_model.py
+
+# For synthetic data
 python scripts/train_model_v2.py
 ```
 
