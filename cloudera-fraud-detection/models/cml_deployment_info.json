@@ -1,0 +1,10 @@
+{
+  "model_id": "a47d0daf-8c13-4424-abec-0c449f414571",
+  "build_id": "cadad2c5-ecf6-40db-b031-d76da8ead86a",
+  "deployment_id": "e8b5f386-8cac-4347-bdcb-eada75f04fd7",
+  "model_name": "Fraud Detection Model",
+  "access_key": "mz1hu2sull1q0msnu4xtnvkt7w922qwh",
+  "created_at": "2025-12-18 21:37:18",
+  "api_host": "https://ml-005e22ec-afd.se-sandb.a465-9q4k.cloudera.site/",
+  "project_id": "sxh1-zcef-a75v-pckw"
+}

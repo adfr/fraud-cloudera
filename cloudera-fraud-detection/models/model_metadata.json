@@ -1,0 +1,106 @@
+{
+  "model_type": "LightGBM",
+  "dataset": "Kaggle Credit Card Fraud",
+  "train_date": "2025-12-18T18:27:55.570832",
+  "features": [
+    "V1",
+    "V2",
+    "V3",
+    "V4",
+    "V5",
+    "V6",
+    "V7",
+    "V8",
+    "V9",
+    "V10",
+    "V11",
+    "V12",
+    "V13",
+    "V14",
+    "V15",
+    "V16",
+    "V17",
+    "V18",
+    "V19",
+    "V20",
+    "V21",
+    "V22",
+    "V23",
+    "V24",
+    "V25",
+    "V26",
+    "V27",
+    "V28",
+    "Amount_log",
+    "Amount_scaled",
+    "hour_sin",
+    "hour_cos",
+    "V1_Amount",
+    "V2_Amount",
+    "V4_Amount",
+    "is_high_amount"
+  ],
+  "optimal_threshold": 0.5313697876308263,
+  "performance": {
+    "train": {
+      "auc_roc": 0.9997356471474149,
+      "auc_pr": 0.8115099309099653,
+      "optimal_threshold": 0.4776529448673079,
+      "precision": 0.7881773399014779,
+      "recall": 0.903954802259887,
+      "f1": 0.8421052631578947,
+      "confusion_matrix": [
+        [
+          193228,
+          86
+        ],
+        [
+          34,
+          320
+        ]
+      ]
+    },
+    "val": {
+      "auc_roc": 0.9757249502368808,
+      "auc_pr": 0.6218887615520747,
+      "optimal_threshold": 0.569442038988548,
+      "precision": 0.8032786885245902,
+      "recall": 0.7777777777777778,
+      "f1": 0.7903225806451613,
+      "confusion_matrix": [
+        [
+          34102,
+          12
+        ],
+        [
+          14,
+          49
+        ]
+      ]
+    },
+    "test": {
+      "auc_roc": 0.9586975348790877,
+      "auc_pr": 0.6562017074889022,
+      "optimal_threshold": 0.5313697876308263,
+      "precision": 0.8709677419354839,
+      "recall": 0.72,
+      "f1": 0.7883211678832117,
+      "confusion_matrix": [
+        [
+          56879,
+          8
+        ],
+        [
+          21,
+          54
+        ]
+      ]
+    }
+  },
+  "model_params": {
+    "num_leaves": 63,
+    "learning_rate": 0.01,
+    "max_depth": 8,
+    "num_boost_round": 53
+  }
+}

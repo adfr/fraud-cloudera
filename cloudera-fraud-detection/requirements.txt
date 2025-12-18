@@ -7,3 +7,14 @@ matplotlib>=3.5.0
 flask>=2.0.0
 lightgbm>=3.3.0
 joblib>=1.2.0
+requests>=2.28.0
+
+# CrewAI for multi-agent fraud analysis
+crewai>=0.28.0
+crewai-tools>=0.1.0
+
+# Kaggle API for dataset download
+kaggle>=1.5.0
+
+# SDV for realistic synthetic transaction generation
+sdv>=1.10.0

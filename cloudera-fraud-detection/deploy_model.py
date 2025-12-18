@@ -18,40 +18,84 @@ except ImportError:
     from dotenv import load_dotenv
 
 # Load environment variables from .env file
-env_path = "fraud-cloudera/cloudera-fraud-detection/.env"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(script_dir, ".env")
 if os.path.exists(env_path):
     load_dotenv(dotenv_path=env_path)
 else:
     load_dotenv()
 
+def get_available_runtime(client):
+    """Get an available Python runtime from CML"""
+    try:
+        runtimes = client.list_runtimes(page_size=100)
+        # Prefer Python 3.10 or 3.11 PBJ runtime
+        for rt in runtimes.runtimes:
+            if 'python3.10' in rt.image_identifier or 'python3.11' in rt.image_identifier:
+                if 'pbj' in rt.image_identifier.lower():
+                    return rt.image_identifier
+        # Fallback to any Python runtime
+        for rt in runtimes.runtimes:
+            if 'python' in rt.image_identifier.lower():
+                return rt.image_identifier
+        # Return first available
+        if runtimes.runtimes:
+            return runtimes.runtimes[0].image_identifier
+    except Exception as e:
+        print(f"Warning: Could not list runtimes: {e}")
+    return None
+
+
 def create_cml_model():
     """Create a CML model using native model deployment capabilities"""
-    
+
     # Get environment variables
     api_host = os.environ.get("CML_API_HOST")
-    api_key = os.environ.get("CML_API_KEY") 
+    api_key = os.environ.get("CML_API_KEY")
     project_id = os.environ.get("CML_PROJECT_ID")
-    runtime_id = os.environ.get("CML_RUNTIME_ID", 
-                                "docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.10-standard:2025.01.2-b15")
-    
+    runtime_id = os.environ.get("CML_RUNTIME_ID")  # Can be set in .env or auto-detected
+
     if not all([api_host, api_key, project_id]):
         raise ValueError("Missing required environment variables: CML_API_HOST, CML_API_KEY, CML_PROJECT_ID")
-    
+
     print(f"Creating CML model in project: {project_id}")
-    
+
     # Initialize CML API client
     client = cmlapi.default_client(api_host, api_key)
+
+    # Auto-detect runtime if not specified
+    if not runtime_id:
+        print("No CML_RUNTIME_ID specified, detecting available runtime...")
+        runtime_id = get_available_runtime(client)
+        if runtime_id:
+            print(f"✓ Using runtime: {runtime_id}")
+        else:
+            raise ValueError("Could not find available runtime. Set CML_RUNTIME_ID in .env")
     
+    model_name = "Fraud Detection Model"
+
     try:
-        # Create the model
-        print("Creating CML model...")
+        # Check if model already exists and delete it (clean slate)
+        print(f"Checking for existing model '{model_name}'...")
+        models_list = client.list_models(project_id=project_id)
+        for m in models_list.models:
+            if m.name == model_name:
+                print(f"Found existing model {m.id}, deleting for clean rebuild...")
+                try:
+                    client.delete_model(project_id=project_id, model_id=m.id)
+                    print(f"✓ Deleted old model")
+                    time.sleep(2)  # Wait for deletion to propagate
+                except Exception as del_err:
+                    print(f"Warning: Could not delete old model: {del_err}")
+
+        # Create new model
+        print("Creating new CML model...")
         model_request = cmlapi.CreateModelRequest(
-            name="Fraud Detection Model",
+            name=model_name,
             description="Real-time fraud detection using LightGBM for credit card transactions",
             project_id=project_id,
-            disable_authentication=False  # Enable authentication for security
+            disable_authentication=False
         )
-        
         model_response = client.create_model(model_request, project_id=project_id)
         model_id = model_response.id
         print(f"✓ Model created with ID: {model_id}")
@@ -62,7 +106,7 @@ def create_cml_model():
             model_id=model_id,
             runtime_identifier=runtime_id,
             kernel="python3",
-            file_path="fraud-cloudera/cloudera-fraud-detection/predict.py",
+            file_path="cloudera-fraud-detection/predict.py",  # Relative to CML project root (/home/cdsw/)
             function_name="predict"
         )
         
@@ -89,10 +133,9 @@ def create_cml_model():
         deployment_request = cmlapi.CreateModelDeploymentRequest(
             model_id=model_id,
             build_id=build_id,
-            cpu="1",
-            memory="2",
-            nvidia_gpu="0",
-            replicas="1"
+            cpu=1,
+            memory=2,
+            replicas=1
         )
         
         deployment_response = client.create_model_deployment(
@@ -129,8 +172,10 @@ def create_cml_model():
             "project_id": project_id
         }
         
-        os.makedirs("models", exist_ok=True)
-        with open("models/cml_deployment_info.json", "w") as f:
+        models_dir = os.path.join(script_dir, "models")
+        os.makedirs(models_dir, exist_ok=True)
+        deployment_info_path = os.path.join(models_dir, "cml_deployment_info.json")
+        with open(deployment_info_path, "w") as f:
             json.dump(deployment_info, f, indent=2)
         
         print(f"\n🎉 Model deployment completed successfully!")
@@ -210,7 +255,8 @@ def show_usage_instructions():
     print("="*60)
     
     try:
-        with open("models/cml_deployment_info.json", "r") as f:
+        deployment_info_path = os.path.join(script_dir, "models", "cml_deployment_info.json")
+        with open(deployment_info_path, "r") as f:
             info = json.load(f)
     except FileNotFoundError:
         print("❌ Deployment info not found")

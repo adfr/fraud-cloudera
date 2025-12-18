@@ -1,242 +1,606 @@
-# Cloudera AI Jobs Template
+# Fraud Detection System for Cloudera AI
 
-This template provides a comprehensive framework for setting up and managing jobs in Cloudera Machine Learning (CML), including ML workflows, data processing, and scheduled tasks. It now includes enhanced environment variable support and a generic application launcher.
+A comprehensive credit card fraud detection system using LightGBM, designed for deployment on Cloudera Machine Learning (CML) with Apache NiFi integration.
 
-## 🚀 Quick Start
+## Features
 
-1. Clone this repository into your CML project
-2. Set the `TEMPLATE_DIR` environment variable if your project structure differs
-3. Copy `.env.example` to `.env` and fill in your values (if using the job runner)
-4. Run `python app_setup.py` to launch the demo Flask application
-5. Or run `python run_jobs.py` to create all jobs in CML
+- **LightGBM-based fraud detection** with batch and real-time feature engineering
+- **Transaction rating system** (A+ to F grades) with detailed risk breakdown
+- **CrewAI multi-agent analysis** for deep fraud investigation
+- **NiFi integration** for real-time transaction processing
+- **Cloudera AI deployment** ready with REST API
+- **Kaggle Credit Card Fraud Dataset** support (284K real transactions)
+- **SDV realistic transaction generation** for real-time evaluation
+- **Synthetic data generation** for training and testing
 
-## 📁 Project Structure
+## Architecture
 
 ```
-cloudera-AI-template/
-├── config/
-│   └── jobs_config.yaml      # Job configurations
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Fraud Detection Pipeline                         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐  │
+│  │   NiFi       │    │   Feature    │    │   LightGBM Model     │  │
+│  │  Transaction │───▶│  Engineering │───▶│   + Transaction      │  │
+│  │   Input      │    │  (Batch+RT)  │    │     Rating           │  │
+│  └──────────────┘    └──────────────┘    └──────────┬───────────┘  │
+│                                                       │              │
+│                      ┌────────────────────────────────┘              │
+│                      ▼                                               │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │                     Response                                   │  │
+│  │  - Fraud Probability (0-1)                                    │  │
+│  │  - Risk Level (Very Low → Critical)                           │  │
+│  │  - Transaction Rating (A+ to F)                               │  │
+│  │  - Recommendation (APPROVE, REVIEW, DECLINE)                  │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Project Structure
+
+```
+cloudera-fraud-detection/
+├── agents/                          # CrewAI multi-agent system
+│   ├── __init__.py
+│   ├── query_agent.py              # Transaction data gathering
+│   ├── pattern_agent.py            # Fraud pattern matching
+│   ├── merchant_agent.py           # Online merchant research
+│   ├── assessment_agent.py         # Report generation
+│   ├── fraud_crew.py               # Crew orchestration
+│   └── alert_pipeline.py           # Alert processing pipeline
 ├── scripts/
-│   ├── hello_world.py        # Basic job example
-│   ├── example_job.py        # Environment activation example  
-│   └── app.py               # Demo Flask application
-├── template/
-│   ├── scripts/
-│   │   └── hello_world.py   # Production hello world script
-│   └── requirements.txt     # Template requirements
-├── src/                      # Additional source code
-├── results/                  # Job outputs (created automatically)
-├── create_environment.py     # Environment setup script (uses uv)
-├── app_setup.py             # Generic app launcher (supports uv/pip)
-├── run_jobs.py              # Main job creation script
-├── requirements.txt         # Python dependencies
-├── .env.example             # Environment variables template
-└── README.md                # This file
+│   ├── features/                    # Feature engineering modules
+│   │   ├── __init__.py
+│   │   ├── batch_features.py       # Pre-computed batch features
+│   │   ├── realtime_features.py    # Real-time aggregation features
+│   │   └── feature_pipeline.py     # Combined feature pipeline
+│   ├── generate_training_data.py   # Synthetic data generator
+│   ├── download_kaggle_data.py     # Kaggle dataset downloader
+│   ├── train_model.py              # Original training script
+│   ├── train_model_v2.py           # Enhanced training with new features
+│   ├── train_kaggle_model.py       # Training for Kaggle dataset
+│   ├── sdv_transaction_generator.py # SDV realistic transaction generator
+│   ├── transaction_rating.py       # Transaction rating engine
+│   └── score_transactions.py       # Batch scoring script
+├── nifi/
+│   ├── fraud_detection_flow.json   # NiFi flow template
+│   └── transaction_generator.py    # Manual transaction generator
+├── config/
+│   └── jobs_config.yaml            # CML job configurations
+├── models/                          # Trained models (generated)
+├── data/                            # Training data (generated)
+├── output/                          # Scoring results (generated)
+├── predict.py                       # CML prediction endpoint
+├── deploy_model.py                  # CML deployment script
+├── demo_fraud_detection.py          # End-to-end demo
+├── requirements.txt                 # Python dependencies
+└── README.md                        # This file
 ```
 
-## 🔧 New Features
+## Quick Start
 
-### Environment Variable Support
-- **TEMPLATE_DIR**: Configurable template directory name (default: "template")
-- All scripts now dynamically use this variable instead of hardcoded paths
-- Compatible with different GitHub repository names and structures
+### 0. Setup Environment (Required First Step)
 
-### Generic App Launcher (app_setup.py)
-- Supports both UV and pip package managers
-- Automatically creates virtual environments
-- Installs requirements and launches applications
-- Cross-platform compatibility (Unix/macOS focused)
-- Configurable for any Python application
+```bash
+cd cloudera-fraud-detection
 
-### Enhanced Environment Setup
-- Uses UV package manager for faster dependency installation
-- Falls back to pip if UV is unavailable
-- Creates project_env virtual environment
-- IPython/Jupyter compatible (no sys.exit() issues)
+# Run setup script (creates venv and installs dependencies)
+./setup.sh
 
-## ⚙️ Configuration
+# Activate the virtual environment
+source venv/bin/activate
+```
+
+### 1. Run the Demo
+
+```bash
+cd cloudera-fraud-detection
+python demo_fraud_detection.py --mode quick
+```
+
+This will:
+- Generate synthetic training data
+- Engineer batch and real-time features
+- Train a LightGBM model
+- Demonstrate transaction rating
+- Simulate NiFi transaction flow
+
+### 2. Use Kaggle Credit Card Fraud Dataset (Recommended)
+
+Download and train on the real Kaggle dataset (284,807 transactions):
+
+```bash
+# Setup Kaggle API (one-time)
+# 1. Create account at kaggle.com
+# 2. Go to Settings -> API -> Create New Token
+# 3. Place kaggle.json in project root (easiest option):
+
+# Option A: JSON format (kaggle.json)
+{"username": "your_username", "key": "your_api_key"}
+
+# Option B: YAML format (kaggle.yaml)
+username: your_username
+key: your_api_key
+
+# Download dataset
+python scripts/download_kaggle_data.py
+
+# Train model
+python scripts/train_kaggle_model.py
+```
+
+**Kaggle Credential Locations** (searched in order):
+1. `cloudera-fraud-detection/kaggle.json` or `kaggle.yaml` (project root)
+2. `~/.config/kaggle/kaggle.json` (Cloudera CML)
+3. `~/.kaggle/kaggle.json` (standard Kaggle)
+4. `config/kaggle.json` or `config/kaggle.yaml`
+
+**Dataset Statistics:**
+- 284,807 transactions from European cardholders
+- 492 fraud cases (0.172% fraud rate)
+- Features: V1-V28 (PCA), Time, Amount
+- Real-world class imbalance
+
+**Model Performance** (on Kaggle dataset):
+| Metric | Train | Validation | Test |
+|--------|-------|------------|------|
+| AUC-ROC | 0.9997 | 0.9757 | 0.9587 |
+| AUC-PR | 0.8115 | 0.6219 | 0.6562 |
+| F1 Score | 0.8421 | 0.7903 | 0.7883 |
+| Precision | 0.7882 | 0.8033 | 0.8710 |
+| Recall | 0.9040 | 0.7778 | 0.7200 |
+
+### 3. Generate Synthetic Training Data (Alternative)
+
+```bash
+python scripts/generate_training_data.py
+```
+
+Generates synthetic credit card transactions with realistic fraud patterns:
+- High-value transactions
+- Unusual time transactions
+- Geographic anomalies
+- Rapid succession fraud
+- Online purchase bursts
+
+### 4. Train the Model
+
+```bash
+# For Kaggle dataset
+python scripts/train_kaggle_model.py
+
+# For synthetic data
+python scripts/train_model_v2.py
+```
+
+Trains a LightGBM model with:
+- 40+ engineered features (batch + real-time)
+- Class imbalance handling
+- Early stopping
+- Optimal threshold selection
+
+### 4. Test Locally
+
+```bash
+python predict.py
+```
+
+Tests the prediction endpoint with sample transactions.
+
+## Feature Engineering
+
+### Batch Features (Pre-computed)
+
+Computed offline from historical data:
+
+| Feature | Description |
+|---------|-------------|
+| `user_avg_amount_30d` | User's 30-day average transaction amount |
+| `user_std_amount_30d` | Standard deviation of user's amounts |
+| `user_online_ratio` | Ratio of online transactions |
+| `merchant_fraud_rate` | Historical fraud rate at merchant |
+| `mcc_fraud_rate` | Fraud rate by merchant category |
+| `state_fraud_rate` | Fraud rate by state |
+
+### Real-Time Features (Computed at Transaction Time)
+
+Computed dynamically for each transaction:
+
+| Feature | Description |
+|---------|-------------|
+| `Amount_clean` | Transaction amount |
+| `hour`, `day_of_week` | Time features |
+| `is_online`, `is_chip` | Transaction type |
+| `trans_count_1h` | Transactions in last hour |
+| `trans_count_24h` | Transactions in last 24 hours |
+| `amount_mean_5` | Rolling mean of last 5 transactions |
+| `amount_zscore` | Z-score deviation from user average |
+| `is_different_state` | Transaction outside home state |
+
+## Transaction Rating System
+
+Transactions receive a letter grade (A+ to F) based on multiple risk factors:
+
+| Rating | Risk Score | Recommendation |
+|--------|------------|----------------|
+| A+ | 0-10 | Auto-approve |
+| A | 10-25 | Approve |
+| B | 25-45 | Approve with monitoring |
+| C | 45-65 | Manual review |
+| D | 65-85 | Step-up authentication |
+| F | 85-100 | Decline |
+
+### Risk Factors
+
+- **ML Fraud Score** (40%): Model prediction
+- **Amount Risk** (15%): Transaction amount vs. user profile
+- **Velocity Risk** (10%): Transaction frequency
+- **Time Risk** (8%): Unusual transaction times
+- **Geographic Risk** (8%): Location anomalies
+- **Merchant Risk** (7%): High-risk merchant categories
+- **Device Risk** (7%): Transaction type (chip vs. swipe vs. online)
+- **Behavioral Risk** (5%): Deviation from user patterns
+
+## CrewAI Multi-Agent Fraud Analysis
+
+When a high-risk alert is triggered, a CrewAI crew of specialized agents performs deep analysis:
+
+### Agent Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     CrewAI Fraud Analysis                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  1. Query Agent ─────────────────────────────────────────────────   │
+│     │  Gathers transaction data, user history, spending profile     │
+│     ▼                                                                │
+│  2. Pattern Matching Agent ─────────────────────────────────────    │
+│     │  Matches against known fraud patterns                          │
+│     │  (Card testing, Account takeover, Velocity abuse, etc.)       │
+│     ▼                                                                │
+│  3. Merchant Research Agent ────────────────────────────────────    │
+│     │  Searches online for merchant compromises                      │
+│     │  Checks breach databases, fraud reports                        │
+│     ▼                                                                │
+│  4. Assessment Writer Agent ────────────────────────────────────    │
+│        Synthesizes all findings into comprehensive report            │
+│                                                                       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Using the Fraud Analysis Crew
+
+```python
+from agents import FraudAnalysisCrew
+
+# Create crew
+crew = FraudAnalysisCrew()
+
+# Analyze an alert
+alert_data = {
+    "transaction_id": "TXN_001",
+    "User": 123,
+    "Amount": "$2,500.00",
+    "Use Chip": "Online Transaction",
+    "Merchant Name": "ELECTRONICS_STORE",
+    "MCC": 5732,
+    "fraud_probability": 0.78,
+    "risk_level": "High"
+}
+
+# Full analysis (uses LLM)
+result = crew.analyze_alert(alert_data)
+
+# Quick analysis (no LLM required)
+quick_result = crew.quick_analyze(alert_data)
+```
+
+### Alert Pipeline Integration
+
+```python
+from agents import AlertPipeline
+
+# Create pipeline
+pipeline = AlertPipeline(analysis_threshold=0.5)
+
+# Process transaction result
+alert = pipeline.process_transaction_result(transaction, model_result)
+
+# Analyze pending alerts
+results = pipeline.analyze_pending_alerts(max_alerts=10)
+```
+
+### Fraud Patterns Detected
+
+| Pattern | Description | Indicators |
+|---------|-------------|------------|
+| Card Not Present | Online fraud with stolen cards | High-value online, electronics/gift cards |
+| Card Testing | Multiple small transactions | Rapid succession, low amounts |
+| Account Takeover | Compromised account | Sudden pattern change, new location |
+| Velocity Abuse | High transaction frequency | >5/hour, >20/day |
+| Geographic Impossibility | Impossible travel | Different cities within hours |
+| High Risk Merchant | Known risky categories | Jewelry, gambling, electronics |
+
+### Configuration
+
+```bash
+# For full analysis with LLM
+export OPENAI_API_KEY=your_key_here
+
+# For web search (merchant research)
+export SERPER_API_KEY=your_key_here
+```
+
+## NiFi Integration
+
+### Import the Flow
+
+1. Open NiFi Canvas
+2. Import `nifi/fraud_detection_flow.json`
+3. Configure variables:
+   - `ml.model.endpoint`: CML model URL
+   - `fraud.alerts.directory`: Alert output path
+
+### Generate Test Transactions
+
+```bash
+# Interactive mode
+python nifi/transaction_generator.py
+
+# Generate suspicious transaction
+python nifi/transaction_generator.py --mode suspicious --fraud-type high_amount
+
+# Batch generation
+python nifi/transaction_generator.py --mode batch --count 100 -o transactions.json
+```
+
+## SDV Realistic Transaction Generation
+
+Use **Synthetic Data Vault (SDV)** to generate statistically realistic transactions that maintain the same distributions and correlations as the Kaggle Credit Card Fraud dataset.
+
+### Why SDV?
+
+- **Realistic distributions**: Learns actual transaction patterns from real data
+- **Preserved correlations**: Maintains relationships between features
+- **Conditional generation**: Generate fraud vs legitimate transactions on demand
+- **Streaming support**: Real-time transaction generation for evaluation
+
+### Setup
+
+```bash
+# Install SDV
+pip install sdv
+
+# Train the synthesizer on Kaggle data (one-time)
+python scripts/sdv_transaction_generator.py train --data data/creditcard_fraud.csv
+```
+
+### Generate Transactions
+
+```bash
+# Generate 100 realistic transactions
+python scripts/sdv_transaction_generator.py generate --count 100
+
+# Generate with specific fraud rate (5%)
+python scripts/sdv_transaction_generator.py generate --count 100 --fraud-rate 0.05
+
+# Generate only fraud transactions
+python scripts/sdv_transaction_generator.py generate --count 50 --fraud-only
+
+# Save to file
+python scripts/sdv_transaction_generator.py generate --count 1000 -o synthetic_transactions.csv
+```
+
+### Stream to ML Model
+
+```bash
+# Stream realistic transactions to model endpoint
+python scripts/sdv_transaction_generator.py stream \
+    --model-endpoint http://localhost:8080/predict \
+    --rate 2.0 \
+    --fraud-rate 0.02 \
+    --duration 300
+```
+
+### Using with NiFi Transaction Generator
+
+The NiFi transaction generator now supports SDV mode:
+
+```bash
+# SDV batch generation
+python nifi/transaction_generator.py --mode sdv --count 100 --fraud-rate 0.01
+
+# SDV streaming to model
+python nifi/transaction_generator.py --mode sdv-stream \
+    --model-endpoint http://your-cml-model/predict \
+    --fraud-rate 0.02 \
+    --duration 60
+```
+
+### Evaluate Synthesizer Quality
+
+```bash
+# Compare synthetic data to original
+python scripts/sdv_transaction_generator.py evaluate --data data/creditcard_fraud.csv
+```
+
+### Model Types
+
+| Model | Speed | Quality | Use Case |
+|-------|-------|---------|----------|
+| `gaussian_copula` | Fast | Good | Quick testing, prototyping |
+| `ctgan` | Slow | Better | Production evaluation, benchmarking |
+
+```bash
+# Train with CTGAN for higher quality
+python scripts/sdv_transaction_generator.py train \
+    --data data/creditcard_fraud.csv \
+    --model-type ctgan \
+    --epochs 500
+```
+
+### NiFi Flow Components
+
+1. **GenerateFlowFile**: Creates test transactions
+2. **ExecuteScript**: Generates random transaction data
+3. **EvaluateJsonPath**: Extracts transaction attributes
+4. **InvokeHTTP**: Calls CML fraud detection model
+5. **RouteOnAttribute**: Routes by risk level
+6. **LogAttribute**: Logs high-risk alerts
+7. **PutFile**: Stores fraud alerts
+
+## Cloudera AI Deployment
+
+### Prerequisites
+
+- Cloudera ML workspace
+- Python 3.10+ runtime
+- API key for deployment
+
+### Deploy Model
+
+```bash
+# Set environment variables
+export CML_API_HOST=https://your-cml-workspace.cloudera.site
+export CML_API_KEY=your_api_key
+export CML_PROJECT_ID=your_project_id
+
+# Deploy
+python deploy_model.py
+```
+
+### API Request Format
+
+```json
+{
+  "User": 123,
+  "Card": 0,
+  "Year": 2024,
+  "Month": 12,
+  "Day": 18,
+  "Time": "14:30",
+  "Amount": "$150.00",
+  "Use Chip": "Chip Transaction",
+  "Merchant Name": "GROCERY_STORE",
+  "Merchant State": "CA",
+  "MCC": 5411
+}
+```
+
+### API Response Format
+
+```json
+{
+  "fraud_probability": 0.023,
+  "fraud_prediction": 0,
+  "fraud_label": "NORMAL",
+  "risk_level": "Low",
+  "transaction_rating": "A",
+  "rating_score": 15.5,
+  "recommendation": "APPROVE",
+  "should_approve": true,
+  "requires_review": false,
+  "confidence": "high",
+  "prediction_timestamp": "2024-12-18T14:30:00"
+}
+```
+
+## Configuration
+
+### CML Jobs (config/jobs_config.yaml)
+
+```yaml
+jobs:
+  - name: feature_engineering
+    script: scripts/feature_engineering.py
+    cpu: 2
+    memory: 4
+    timeout: 1800
+
+  - name: train_model
+    script: scripts/train_model_v2.py
+    cpu: 4
+    memory: 8
+    timeout: 3600
+    depends_on: feature_engineering
+
+  - name: deploy_model
+    script: deploy_model.py
+    cpu: 1
+    memory: 2
+    timeout: 2700
+    depends_on: train_model
+```
+
+## Requirements
+
+```
+pyyaml>=6.0
+python-dotenv>=0.20.0
+numpy>=1.21.0
+pandas>=1.3.0
+scikit-learn>=1.0.0
+lightgbm>=3.3.0
+joblib>=1.2.0
+requests>=2.28.0
+
+# CrewAI for multi-agent analysis
+crewai>=0.28.0
+crewai-tools>=0.1.0
+
+# Kaggle API for dataset download
+kaggle>=1.5.0
+
+# SDV for realistic synthetic transactions
+sdv>=1.10.0
+```
+
+## Testing
+
+```bash
+# Run all tests
+python test/run_all_tests.py
+
+# Test feature engineering
+python test/test_feature_engineering.py
+
+# Test model training
+python test/test_train_model.py
+
+# Test scoring
+python test/test_score_transactions.py
+```
+
+## Environment Setup
 
 ### Environment Variables
 
-Set these in your shell or CI/CD environment:
-
 ```bash
 # Template directory configuration
-export TEMPLATE_DIR=template  # or your custom directory name
+export TEMPLATE_DIR=template
 
-# CML API Configuration (for job runner)
+# CML API Configuration
 export CML_API_HOST=https://ml-12345.cloud.example.com
 export CML_API_KEY=your_api_key_here
 export CML_PROJECT_ID=project_id_here
 
-# ML Runtime ID (required for ML Runtime projects)
-export CML_RUNTIME_ID=python3.11
+# ML Runtime ID
+export CML_RUNTIME_ID=docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.10-standard:2025.01.2-b15
 
-# Default resource settings (optional)
+# Default resource settings
 export DEFAULT_CPU=1
 export DEFAULT_MEMORY=2
 export DEFAULT_TIMEOUT=3600
-
-# Flask app configuration
-export CDSW_READONLY_PORT=8090  # Port for web applications
 ```
 
-### Job Configuration (jobs_config.yaml)
+## License
 
-Each job has the following structure:
+Internal use only - Cloudera
 
-```yaml
-jobs:
-  job_key:
-    name: Human-readable job name
-    script: template/path/to/script.py  # Automatically adjusted based on TEMPLATE_DIR
-    kernel: python3
-    runtime_id: 91
-    cpu: 4
-    memory: 8
-    timeout: 3600
-    environment:
-      ENV_VAR: value
-    arguments: --param value
-    parent_job_id: previous_job  # For dependent jobs
-    schedule: "0 8 * * 1"       # For scheduled jobs (cron format)
-```
+## Support
 
-## 📋 Included Jobs
-
-1. **create_env** - Sets up the Python environment with required packages using UV
-2. **scheduled_report** - Weekly scheduled job example
-
-## 🎯 Application Examples
-
-### Demo Flask App (scripts/app.py)
-- Simple web application demonstrating best practices
-- Environment variable integration
-- Health check and API endpoints
-- Ready-to-use template for web applications
-
-### Usage:
-```bash
-# Launch with automatic setup
-python app_setup.py
-
-# Or run directly
-python scripts/app.py
-
-# Access at: http://127.0.0.1:8090
-```
-
-## 🔧 Key Features
-
-- **Environment Variable Support** - Configurable paths and settings
-- **UV Package Manager** - Fast dependency installation with pip fallback
-- **IPython Compatible** - Works in both script and interactive environments  
-- **Generic App Launcher** - Reusable setup script for any Python application
-- **Automatic path detection** - Works with different directory structures
-- **Dependency management** - Jobs can depend on other jobs
-- **Flexible scheduling** - Support for cron-style scheduling
-- **Resource configuration** - CPU, memory allocation
-- **Environment variables** - Pass configuration to jobs
-- **Cross-platform** - Unix/macOS focused (Windows paths removed)
-
-## 📝 Adding New Jobs
-
-1. Create your script in the appropriate directory:
-
-```python
-#!/usr/bin/env python3
-"""Your job description"""
-
-import os
-import argparse
-import logging
-
-def main():
-    # Get template directory from environment
-    template_dir = os.environ.get("TEMPLATE_DIR", "template")
-    
-    # Your job logic here
-    pass
-
-if __name__ == "__main__":
-    main()
-```
-
-2. Add the job configuration to `config/jobs_config.yaml`:
-
-```yaml
-jobs:
-  my_new_job:
-    name: My New Job
-    script: template/scripts/my_new_job.py  # Will be adjusted automatically
-    kernel: python3
-    runtime_id: 91
-    cpu: 2
-    memory: 4
-    parent_job_id: create_env
-```
-
-3. Run `python run_jobs.py` to create the job in CML
-
-## 🏃 ML Runtimes vs. Engine Runtimes
-
-CML supports two types of runtimes:
-
-1. **ML Runtimes** (newer) - Require a `runtime_id` parameter
-2. **Engine Runtimes** (legacy) - Don't require a `runtime_id`
-
-For ML Runtime projects, specify the `runtime_id` either:
-- In each job configuration, or
-- As `CML_RUNTIME_ID` in the environment variables (default for all jobs)
-
-## 🛠️ Package Managers
-
-The template supports both UV and pip:
-
-- **UV** (default): Fast Python package installer and resolver
-- **pip** (fallback): Traditional Python package manager
-
-Configure in `app_setup.py`:
-```python
-USE_UV = True  # Set to False to use pip instead
-```
-
-## 🔍 Debugging
-
-1. Check job logs in the CML UI
-2. Use `--log_level DEBUG` in job arguments for verbose logging
-3. Verify environment variables are set correctly:
-   ```bash
-   echo $TEMPLATE_DIR
-   echo $CML_API_HOST
-   ```
-4. Ensure all file paths are correct
-5. Test the demo app with `python app_setup.py`
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Update documentation as needed
-5. Submit a pull request
-
-## 📜 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-For issues or questions:
-- Check the CML documentation
-- Open an issue in this repository
-- Contact your CML administrator
-
-## 🔄 Migration Guide
-
-If upgrading from an older version:
-
-1. Set the `TEMPLATE_DIR` environment variable if your directory structure differs
-2. Update any hardcoded "template" paths in custom scripts
-3. Install UV for faster package management: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-4. Test the new app launcher: `python app_setup.py`
+For issues or questions, contact the ML Platform team.

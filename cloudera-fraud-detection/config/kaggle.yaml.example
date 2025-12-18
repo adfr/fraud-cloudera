@@ -1,0 +1,17 @@
+# Kaggle API Credentials
+#
+# To get your credentials:
+# 1. Go to https://www.kaggle.com
+# 2. Click on your profile icon -> Settings
+# 3. Scroll to "API" section
+# 4. Click "Create New Token"
+# 5. Copy the values from the downloaded kaggle.json
+#
+# Copy this file to config/kaggle.yaml and fill in your credentials:
+#   cp config/kaggle.yaml.example config/kaggle.yaml
+#
+# IMPORTANT: Never commit your actual credentials to git!
+# The config/kaggle.yaml file is ignored by .gitignore
+
+username: your_kaggle_username
+key: your_kaggle_api_key

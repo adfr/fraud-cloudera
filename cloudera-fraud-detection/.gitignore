@@ -1,0 +1,53 @@
+# Credentials (NEVER commit these!)
+kaggle.json
+config/kaggle.json
+config/kaggle.yaml
+config/kaggle.yml
+.kaggle/
+*.key
+*.secret
+
+# Data files (too large for git)
+data/
+*.csv
+
+# Models (binary files)
+models/*.pkl
+models/*.joblib
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Output
+output/
