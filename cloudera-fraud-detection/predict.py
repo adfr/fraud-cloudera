@@ -6,17 +6,34 @@ import cml.models_v1 as models
 _model = None
 _metadata = None
 
+def _find_model():
+    """Try multiple possible paths for the model file"""
+    possible_paths = [
+        "/home/cdsw/cloudera-fraud-detection/models",  # Standard CML path
+        "/home/cdsw/models",  # Model at project root
+        os.path.join(os.getcwd(), "cloudera-fraud-detection", "models"),
+        os.path.join(os.getcwd(), "models"),
+    ]
+
+    for base in possible_paths:
+        mp = os.path.join(base, "fraud_detection_lgb.pkl")
+        if os.path.exists(mp):
+            return base
+    return None
+
 def _load():
     global _model, _metadata
     if _model is None:
         try:
             import joblib
-            # Use getcwd() - in CML PBJ, cwd is /home/cdsw/ (project root)
-            d = os.path.join(os.getcwd(), "cloudera-fraud-detection")
-            mp = os.path.join(d, "models", "fraud_detection_lgb.pkl")
-            meta_p = os.path.join(d, "models", "model_metadata.json")
-            if os.path.exists(mp):
-                _model = joblib.load(mp)
+            base = _find_model()
+            if base is None:
+                return None, None, None
+
+            mp = os.path.join(base, "fraud_detection_lgb.pkl")
+            meta_p = os.path.join(base, "model_metadata.json")
+
+            _model = joblib.load(mp)
             if os.path.exists(meta_p):
                 with open(meta_p) as f:
                     _metadata = json.load(f)
@@ -38,9 +55,17 @@ def predict(args):
             return {"error": err}
 
         if model is None:
-            d = os.path.join(os.getcwd(), "cloudera-fraud-detection")
-            mp = os.path.join(d, "models", "fraud_detection_lgb.pkl")
-            return {"error": f"Model not found at {mp}", "exists": os.path.exists(mp)}
+            # Return diagnostic info
+            return {
+                "error": "Model not found",
+                "cwd": os.getcwd(),
+                "tried_paths": [
+                    "/home/cdsw/cloudera-fraud-detection/models",
+                    "/home/cdsw/models",
+                    os.path.join(os.getcwd(), "cloudera-fraud-detection", "models"),
+                    os.path.join(os.getcwd(), "models"),
+                ]
+            }
 
         import pandas as pd
         feats = meta.get("features", []) if meta else []
