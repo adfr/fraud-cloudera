@@ -94,33 +94,35 @@ YAML_AVAILABLE = True
 DATASET_NAME = "mlg-ulb/creditcardfraud"
 OUTPUT_DIR = "data"
 OUTPUT_FILE = "creditcard_fraud.csv"
+
+# Config file search paths (JSON and YAML supported)
 DEFAULT_CONFIG_PATHS = [
+    # Standard Kaggle JSON location (most common)
+    os.path.expanduser("~/.kaggle/kaggle.json"),
+    # Project-specific YAML configs
     "config/kaggle.yaml",
     "config/kaggle.yml",
-    ".kaggle/kaggle.yaml",
-    os.path.expanduser("~/.kaggle/kaggle.yaml"),
-    os.path.expanduser("~/.kaggle/kaggle.yml"),
+    "config/kaggle.json",
 ]
 
 
 def load_kaggle_credentials(config_path: str = None) -> bool:
     """
-    Load Kaggle credentials from YAML config file.
+    Load Kaggle credentials from config file (JSON or YAML).
+
+    Supports:
+    - Standard Kaggle JSON: ~/.kaggle/kaggle.json
+    - Project YAML: config/kaggle.yaml
 
     Sets KAGGLE_USERNAME and KAGGLE_KEY environment variables
     which the Kaggle API will use for authentication.
 
     Args:
-        config_path: Path to YAML config file. If None, searches default locations.
+        config_path: Path to config file. If None, searches default locations.
 
     Returns:
         True if credentials were loaded successfully
     """
-    if not YAML_AVAILABLE:
-        print("Warning: pyyaml not installed. Install with: pip install pyyaml")
-        print("Falling back to standard Kaggle authentication...")
-        return False
-
     # Find config file
     if config_path:
         paths_to_check = [config_path]
@@ -134,10 +136,13 @@ def load_kaggle_credentials(config_path: str = None) -> bool:
             break
 
     if not config_file:
-        print("No Kaggle YAML config found. Searched locations:")
-        for path in paths_to_check[:3]:  # Show first 3 locations
+        print("No Kaggle config found. Searched locations:")
+        for path in paths_to_check:
             print(f"  - {path}")
-        print("\nCreate config/kaggle.yaml with:")
+        print("\nOption 1: Use standard Kaggle setup:")
+        print("  kaggle.com -> Settings -> API -> Create New Token")
+        print("  This downloads kaggle.json to ~/.kaggle/")
+        print("\nOption 2: Create config/kaggle.yaml with:")
         print("  username: your_kaggle_username")
         print("  key: your_kaggle_api_key")
         print("\nFalling back to standard Kaggle authentication...")
@@ -146,13 +151,18 @@ def load_kaggle_credentials(config_path: str = None) -> bool:
     try:
         print(f"Loading Kaggle credentials from: {config_file}")
         with open(config_file, 'r') as f:
-            config = yaml.safe_load(f)
+            # Detect format by extension
+            if config_file.endswith('.json'):
+                config = json.load(f)
+            else:
+                config = yaml.safe_load(f)
 
         username = config.get('username')
         key = config.get('key')
 
         if not username or not key:
-            print("Error: YAML config must contain 'username' and 'key' fields")
+            print(f"Error: Config must contain 'username' and 'key' fields")
+            print(f"Found keys: {list(config.keys())}")
             return False
 
         # Set environment variables for Kaggle API
@@ -162,6 +172,9 @@ def load_kaggle_credentials(config_path: str = None) -> bool:
         print(f"Loaded credentials for user: {username}")
         return True
 
+    except json.JSONDecodeError as e:
+        print(f"Error parsing JSON config: {e}")
+        return False
     except yaml.YAMLError as e:
         print(f"Error parsing YAML config: {e}")
         return False
