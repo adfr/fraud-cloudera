@@ -116,28 +116,42 @@ Download and train on the real Kaggle dataset (284,807 transactions):
 # Setup Kaggle API (one-time)
 # 1. Create account at kaggle.com
 # 2. Go to Settings -> API -> Create New Token
-# 3. Create config/kaggle.yaml with your credentials:
+# 3. Place kaggle.json in project root (easiest option):
 
-cp config/kaggle.yaml.example config/kaggle.yaml
-# Edit config/kaggle.yaml and add:
-#   username: your_kaggle_username
-#   key: your_kaggle_api_key
+# Option A: JSON format (kaggle.json)
+{"username": "your_username", "key": "your_api_key"}
+
+# Option B: YAML format (kaggle.yaml)
+username: your_username
+key: your_api_key
 
 # Download dataset
 python scripts/download_kaggle_data.py
 
-# Or specify a custom config path:
-python scripts/download_kaggle_data.py --config path/to/kaggle.yaml
-
 # Train model
 python scripts/train_kaggle_model.py
 ```
+
+**Kaggle Credential Locations** (searched in order):
+1. `cloudera-fraud-detection/kaggle.json` or `kaggle.yaml` (project root)
+2. `~/.config/kaggle/kaggle.json` (Cloudera CML)
+3. `~/.kaggle/kaggle.json` (standard Kaggle)
+4. `config/kaggle.json` or `config/kaggle.yaml`
 
 **Dataset Statistics:**
 - 284,807 transactions from European cardholders
 - 492 fraud cases (0.172% fraud rate)
 - Features: V1-V28 (PCA), Time, Amount
 - Real-world class imbalance
+
+**Model Performance** (on Kaggle dataset):
+| Metric | Train | Validation | Test |
+|--------|-------|------------|------|
+| AUC-ROC | 0.9997 | 0.9757 | 0.9587 |
+| AUC-PR | 0.8115 | 0.6219 | 0.6562 |
+| F1 Score | 0.8421 | 0.7903 | 0.7883 |
+| Precision | 0.7882 | 0.8033 | 0.8710 |
+| Recall | 0.9040 | 0.7778 | 0.7200 |
 
 ### 3. Generate Synthetic Training Data (Alternative)
 
