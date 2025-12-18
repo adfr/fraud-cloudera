@@ -44,16 +44,20 @@ def load_kaggle_credentials_early():
     The kaggle package auto-authenticates on import, so we must set
     environment variables first.
     """
+    # Get the script's directory and project root
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_dir = os.path.dirname(script_dir)
+
     # Search paths for kaggle.json (in order of priority)
     search_paths = [
-        # Project root (simplest)
-        "kaggle.json",
+        # Project root (simplest) - use absolute path
+        os.path.join(project_dir, "kaggle.json"),
         # Cloudera CML location
         os.path.expanduser("~/.config/kaggle/kaggle.json"),
         # Standard Kaggle location
         os.path.expanduser("~/.kaggle/kaggle.json"),
         # Config subfolder
-        "config/kaggle.json",
+        os.path.join(project_dir, "config", "kaggle.json"),
     ]
 
     for path in search_paths:
@@ -71,6 +75,12 @@ def load_kaggle_credentials_early():
             except Exception as e:
                 print(f"Warning: Failed to load {path}: {e}")
 
+    # No credentials found - print helpful message
+    print("WARNING: No kaggle.json found. Searched:")
+    for path in search_paths:
+        exists = "EXISTS" if os.path.exists(path) else "not found"
+        print(f"  - {path} ({exists})")
+    print("\nPut your kaggle.json in:", os.path.join(project_dir, "kaggle.json"))
     return False
 
 
