@@ -50,7 +50,7 @@ logs/
 
 # Data and model files (keep these in version control if small enough)
 data/
-models/
+# models/ - removed to allow fraud detection model to be tracked
 
 # Output files
 reports/
