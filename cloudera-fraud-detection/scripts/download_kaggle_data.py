@@ -35,6 +35,43 @@ Usage:
 import os
 import sys
 import subprocess
+import json
+
+
+def load_kaggle_credentials_early():
+    """
+    Load Kaggle credentials BEFORE importing kaggle package.
+    The kaggle package auto-authenticates on import, so we must set
+    environment variables first.
+    """
+    # Search paths for kaggle.json (in order of priority)
+    search_paths = [
+        # Project root (simplest)
+        "kaggle.json",
+        # Cloudera CML location
+        os.path.expanduser("~/.config/kaggle/kaggle.json"),
+        # Standard Kaggle location
+        os.path.expanduser("~/.kaggle/kaggle.json"),
+        # Config subfolder
+        "config/kaggle.json",
+    ]
+
+    for path in search_paths:
+        if os.path.exists(path):
+            try:
+                with open(path, 'r') as f:
+                    config = json.load(f)
+                username = config.get('username')
+                key = config.get('key')
+                if username and key:
+                    os.environ['KAGGLE_USERNAME'] = username
+                    os.environ['KAGGLE_KEY'] = key
+                    print(f"Loaded Kaggle credentials from: {path}")
+                    return True
+            except Exception as e:
+                print(f"Warning: Failed to load {path}: {e}")
+
+    return False
 
 
 def check_environment():
@@ -53,12 +90,11 @@ def check_environment():
         print(f"  python scripts/download_kaggle_data.py")
         sys.exit(1)
 
-    # Auto-install required packages
+    # Auto-install required packages (but DON'T import kaggle yet - it auto-authenticates!)
     required_packages = {
         'pandas': 'pandas',
         'numpy': 'numpy',
         'yaml': 'pyyaml',
-        'kaggle': 'kaggle',
         'sklearn': 'scikit-learn',
     }
 
@@ -69,12 +105,23 @@ def check_environment():
         except ImportError:
             missing_packages.append(package)
 
+    # Check kaggle separately without importing
+    try:
+        import importlib.util
+        if importlib.util.find_spec('kaggle') is None:
+            missing_packages.append('kaggle')
+    except:
+        missing_packages.append('kaggle')
+
     if missing_packages:
         print(f"Installing missing packages: {', '.join(missing_packages)}")
         for package in missing_packages:
             subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", package])
         print("Packages installed successfully.\n")
 
+
+# Load credentials FIRST (before kaggle import)
+load_kaggle_credentials_early()
 
 # Run environment check
 check_environment()
