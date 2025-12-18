@@ -63,7 +63,7 @@ def create_cml_model():
             model_id=model_id,
             runtime_identifier=runtime_id,
             kernel="python3",
-            file_path="predict.py",  # Relative to CML project root
+            file_path="cloudera-fraud-detection/predict.py",  # Relative to CML project root (/home/cdsw/)
             function_name="predict"
         )
         
