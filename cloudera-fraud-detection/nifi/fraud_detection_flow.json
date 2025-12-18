@@ -1,0 +1,447 @@
+{
+  "flowContents": {
+    "identifier": "fraud-detection-flow",
+    "name": "Credit Card Fraud Detection Pipeline",
+    "comments": "NiFi flow for processing credit card transactions and invoking ML fraud detection model",
+    "processGroups": [],
+    "remoteProcessGroups": [],
+    "processors": [
+      {
+        "identifier": "generate-transactions",
+        "name": "Generate Test Transactions",
+        "type": "org.apache.nifi.processors.standard.GenerateFlowFile",
+        "bundle": {
+          "group": "org.apache.nifi",
+          "artifact": "nifi-standard-nar",
+          "version": "1.23.0"
+        },
+        "properties": {
+          "generate-ff-custom-text": "${transaction_json}",
+          "Batch Size": "1",
+          "Data Format": "Text",
+          "Unique FlowFiles": "true",
+          "character-set": "UTF-8"
+        },
+        "schedulingPeriod": "5 sec",
+        "schedulingStrategy": "TIMER_DRIVEN",
+        "penaltyDuration": "30 sec",
+        "yieldDuration": "1 sec",
+        "bulletinLevel": "WARN",
+        "runDurationMillis": 0,
+        "concurrentlySchedulableTaskCount": 1,
+        "comments": "Generates sample transactions for testing. Replace with real transaction source.",
+        "position": {
+          "x": 100,
+          "y": 100
+        }
+      },
+      {
+        "identifier": "execute-script-generate",
+        "name": "Generate Random Transaction",
+        "type": "org.apache.nifi.processors.standard.ExecuteScript",
+        "bundle": {
+          "group": "org.apache.nifi",
+          "artifact": "nifi-standard-nar",
+          "version": "1.23.0"
+        },
+        "properties": {
+          "Script Engine": "python",
+          "Script Body": "import json\nimport random\nfrom datetime import datetime\nfrom java.io import BufferedReader, InputStreamReader, BufferedWriter, OutputStreamWriter\nfrom org.apache.nifi.processor.io import StreamCallback\n\nclass GenerateTransaction(StreamCallback):\n    def __init__(self):\n        pass\n    \n    def process(self, inputStream, outputStream):\n        # Transaction types\n        trans_types = ['Chip Transaction', 'Swipe Transaction', 'Online Transaction']\n        states = ['CA', 'TX', 'NY', 'FL', 'IL', 'PA', 'OH', 'GA', 'NC', 'MI']\n        mccs = [5411, 5541, 5812, 5912, 5311, 5999, 7011, 4111, 5732, 5944]\n        \n        now = datetime.now()\n        trans_type = random.choice(trans_types)\n        is_online = trans_type == 'Online Transaction'\n        \n        transaction = {\n            'User': random.randint(1, 500),\n            'Card': random.randint(0, 2),\n            'Year': now.year,\n            'Month': now.month,\n            'Day': now.day,\n            'Time': f'{now.hour:02d}:{now.minute:02d}',\n            'Amount': f'${random.uniform(10, 500):.2f}',\n            'Use Chip': trans_type,\n            'Merchant Name': f'MERCHANT_{random.randint(1000, 9999)}',\n            'Merchant City': '' if is_online else f'CITY_{random.randint(1, 100)}',\n            'Merchant State': '' if is_online else random.choice(states),\n            'Zip': '' if is_online else f'{random.randint(10000, 99999)}',\n            'MCC': random.choice(mccs),\n            'transaction_id': f'TXN_{now.strftime(\"%Y%m%d%H%M%S\")}_{random.randint(1000, 9999)}'\n        }\n        \n        writer = BufferedWriter(OutputStreamWriter(outputStream, 'UTF-8'))\n        writer.write(json.dumps(transaction))\n        writer.flush()\n        writer.close()\n\nflowFile = session.get()\nif flowFile is not None:\n    flowFile = session.write(flowFile, GenerateTransaction())\n    flowFile = session.putAttribute(flowFile, 'mime.type', 'application/json')\n    session.transfer(flowFile, REL_SUCCESS)"
+        },
+        "schedulingPeriod": "0 sec",
+        "schedulingStrategy": "TIMER_DRIVEN",
+        "penaltyDuration": "30 sec",
+        "yieldDuration": "1 sec",
+        "bulletinLevel": "WARN",
+        "runDurationMillis": 0,
+        "concurrentlySchedulableTaskCount": 1,
+        "comments": "Generates random transaction JSON for testing",
+        "position": {
+          "x": 350,
+          "y": 100
+        }
+      },
+      {
+        "identifier": "extract-transaction-attrs",
+        "name": "Extract Transaction Attributes",
+        "type": "org.apache.nifi.processors.standard.EvaluateJsonPath",
+        "bundle": {
+          "group": "org.apache.nifi",
+          "artifact": "nifi-standard-nar",
+          "version": "1.23.0"
+        },
+        "properties": {
+          "Destination": "flowfile-attribute",
+          "Return Type": "auto-detect",
+          "Path Not Found Behavior": "ignore",
+          "Null Value Representation": "empty string",
+          "transaction_id": "$.transaction_id",
+          "user_id": "$.User",
+          "card_id": "$.Card",
+          "amount": "$.Amount",
+          "trans_type": "$['Use Chip']",
+          "mcc": "$.MCC",
+          "state": "$['Merchant State']"
+        },
+        "schedulingPeriod": "0 sec",
+        "schedulingStrategy": "TIMER_DRIVEN",
+        "penaltyDuration": "30 sec",
+        "yieldDuration": "1 sec",
+        "bulletinLevel": "WARN",
+        "runDurationMillis": 0,
+        "concurrentlySchedulableTaskCount": 1,
+        "comments": "Extract transaction attributes for logging and routing",
+        "position": {
+          "x": 600,
+          "y": 100
+        }
+      },
+      {
+        "identifier": "invoke-ml-model",
+        "name": "Invoke Fraud Detection Model",
+        "type": "org.apache.nifi.processors.standard.InvokeHTTP",
+        "bundle": {
+          "group": "org.apache.nifi",
+          "artifact": "nifi-standard-nar",
+          "version": "1.23.0"
+        },
+        "properties": {
+          "HTTP Method": "POST",
+          "Remote URL": "${ml.model.endpoint}",
+          "SSL Context Service": "",
+          "Connection Timeout": "5 secs",
+          "Read Timeout": "15 secs",
+          "Include Date Header": "True",
+          "Follow Redirects": "True",
+          "Content-Type": "application/json",
+          "send-message-body": "true",
+          "Add Response Headers to Request": "false",
+          "Put Response Body In Attribute": "",
+          "Max Length To Put In Attribute": "256",
+          "Digest Authentication": "false",
+          "Always Output Response": "false",
+          "Trusted Hostname": "",
+          "Use Chunked Encoding": "false"
+        },
+        "schedulingPeriod": "0 sec",
+        "schedulingStrategy": "TIMER_DRIVEN",
+        "penaltyDuration": "30 sec",
+        "yieldDuration": "1 sec",
+        "bulletinLevel": "WARN",
+        "runDurationMillis": 0,
+        "concurrentlySchedulableTaskCount": 2,
+        "comments": "Send transaction to Cloudera ML fraud detection model endpoint",
+        "position": {
+          "x": 850,
+          "y": 100
+        }
+      },
+      {
+        "identifier": "parse-ml-response",
+        "name": "Parse ML Response",
+        "type": "org.apache.nifi.processors.standard.EvaluateJsonPath",
+        "bundle": {
+          "group": "org.apache.nifi",
+          "artifact": "nifi-standard-nar",
+          "version": "1.23.0"
+        },
+        "properties": {
+          "Destination": "flowfile-attribute",
+          "Return Type": "auto-detect",
+          "Path Not Found Behavior": "ignore",
+          "Null Value Representation": "empty string",
+          "fraud_probability": "$.fraud_probability",
+          "fraud_prediction": "$.fraud_prediction",
+          "fraud_label": "$.fraud_label",
+          "risk_level": "$.risk_level",
+          "confidence": "$.confidence",
+          "transaction_rating": "$.transaction_rating"
+        },
+        "schedulingPeriod": "0 sec",
+        "schedulingStrategy": "TIMER_DRIVEN",
+        "penaltyDuration": "30 sec",
+        "yieldDuration": "1 sec",
+        "bulletinLevel": "WARN",
+        "runDurationMillis": 0,
+        "concurrentlySchedulableTaskCount": 1,
+        "comments": "Parse fraud detection model response",
+        "position": {
+          "x": 1100,
+          "y": 100
+        }
+      },
+      {
+        "identifier": "route-by-risk",
+        "name": "Route by Risk Level",
+        "type": "org.apache.nifi.processors.standard.RouteOnAttribute",
+        "bundle": {
+          "group": "org.apache.nifi",
+          "artifact": "nifi-standard-nar",
+          "version": "1.23.0"
+        },
+        "properties": {
+          "Routing Strategy": "Route to Property name",
+          "high_risk": "${risk_level:equals('High'):or(${risk_level:equals('Very High')})}",
+          "medium_risk": "${risk_level:equals('Medium')}",
+          "low_risk": "${risk_level:equals('Low')}"
+        },
+        "schedulingPeriod": "0 sec",
+        "schedulingStrategy": "TIMER_DRIVEN",
+        "penaltyDuration": "30 sec",
+        "yieldDuration": "1 sec",
+        "bulletinLevel": "WARN",
+        "runDurationMillis": 0,
+        "concurrentlySchedulableTaskCount": 1,
+        "comments": "Route transactions based on fraud risk level",
+        "position": {
+          "x": 1350,
+          "y": 100
+        }
+      },
+      {
+        "identifier": "log-high-risk",
+        "name": "Log High Risk Transactions",
+        "type": "org.apache.nifi.processors.standard.LogAttribute",
+        "bundle": {
+          "group": "org.apache.nifi",
+          "artifact": "nifi-standard-nar",
+          "version": "1.23.0"
+        },
+        "properties": {
+          "Log Level": "warn",
+          "Attributes to Log": "transaction_id, user_id, amount, fraud_probability, risk_level, transaction_rating",
+          "Attributes to Log by Regular Expression": "",
+          "Log Payload": "true",
+          "Log prefix": "HIGH_RISK_FRAUD_ALERT"
+        },
+        "schedulingPeriod": "0 sec",
+        "schedulingStrategy": "TIMER_DRIVEN",
+        "penaltyDuration": "30 sec",
+        "yieldDuration": "1 sec",
+        "bulletinLevel": "WARN",
+        "runDurationMillis": 0,
+        "concurrentlySchedulableTaskCount": 1,
+        "comments": "Log high-risk fraud alerts",
+        "position": {
+          "x": 1600,
+          "y": 0
+        }
+      },
+      {
+        "identifier": "put-fraud-alerts",
+        "name": "Store Fraud Alerts",
+        "type": "org.apache.nifi.processors.standard.PutFile",
+        "bundle": {
+          "group": "org.apache.nifi",
+          "artifact": "nifi-standard-nar",
+          "version": "1.23.0"
+        },
+        "properties": {
+          "Directory": "${fraud.alerts.directory}",
+          "Conflict Resolution Strategy": "replace",
+          "Create Missing Directories": "true",
+          "Maximum File Count": "",
+          "Last Modified Time": "",
+          "Permissions": "",
+          "Owner": "",
+          "Group": ""
+        },
+        "schedulingPeriod": "0 sec",
+        "schedulingStrategy": "TIMER_DRIVEN",
+        "penaltyDuration": "30 sec",
+        "yieldDuration": "1 sec",
+        "bulletinLevel": "WARN",
+        "runDurationMillis": 0,
+        "concurrentlySchedulableTaskCount": 1,
+        "comments": "Store fraud alerts to file system",
+        "position": {
+          "x": 1850,
+          "y": 0
+        }
+      },
+      {
+        "identifier": "log-normal",
+        "name": "Log Normal Transactions",
+        "type": "org.apache.nifi.processors.standard.LogAttribute",
+        "bundle": {
+          "group": "org.apache.nifi",
+          "artifact": "nifi-standard-nar",
+          "version": "1.23.0"
+        },
+        "properties": {
+          "Log Level": "info",
+          "Attributes to Log": "transaction_id, user_id, amount, risk_level, transaction_rating",
+          "Attributes to Log by Regular Expression": "",
+          "Log Payload": "false",
+          "Log prefix": "TRANSACTION_PROCESSED"
+        },
+        "schedulingPeriod": "0 sec",
+        "schedulingStrategy": "TIMER_DRIVEN",
+        "penaltyDuration": "30 sec",
+        "yieldDuration": "1 sec",
+        "bulletinLevel": "WARN",
+        "runDurationMillis": 0,
+        "concurrentlySchedulableTaskCount": 1,
+        "comments": "Log normal/low-risk transactions",
+        "position": {
+          "x": 1600,
+          "y": 200
+        }
+      }
+    ],
+    "connections": [
+      {
+        "identifier": "conn-1",
+        "name": "GenerateToScript",
+        "source": {
+          "id": "generate-transactions",
+          "type": "PROCESSOR"
+        },
+        "destination": {
+          "id": "execute-script-generate",
+          "type": "PROCESSOR"
+        },
+        "selectedRelationships": ["success"],
+        "position": {
+          "x": 225,
+          "y": 100
+        }
+      },
+      {
+        "identifier": "conn-2",
+        "name": "ScriptToExtract",
+        "source": {
+          "id": "execute-script-generate",
+          "type": "PROCESSOR"
+        },
+        "destination": {
+          "id": "extract-transaction-attrs",
+          "type": "PROCESSOR"
+        },
+        "selectedRelationships": ["success"],
+        "position": {
+          "x": 475,
+          "y": 100
+        }
+      },
+      {
+        "identifier": "conn-3",
+        "name": "ExtractToInvoke",
+        "source": {
+          "id": "extract-transaction-attrs",
+          "type": "PROCESSOR"
+        },
+        "destination": {
+          "id": "invoke-ml-model",
+          "type": "PROCESSOR"
+        },
+        "selectedRelationships": ["matched"],
+        "position": {
+          "x": 725,
+          "y": 100
+        }
+      },
+      {
+        "identifier": "conn-4",
+        "name": "InvokeToParse",
+        "source": {
+          "id": "invoke-ml-model",
+          "type": "PROCESSOR"
+        },
+        "destination": {
+          "id": "parse-ml-response",
+          "type": "PROCESSOR"
+        },
+        "selectedRelationships": ["Response"],
+        "position": {
+          "x": 975,
+          "y": 100
+        }
+      },
+      {
+        "identifier": "conn-5",
+        "name": "ParseToRoute",
+        "source": {
+          "id": "parse-ml-response",
+          "type": "PROCESSOR"
+        },
+        "destination": {
+          "id": "route-by-risk",
+          "type": "PROCESSOR"
+        },
+        "selectedRelationships": ["matched"],
+        "position": {
+          "x": 1225,
+          "y": 100
+        }
+      },
+      {
+        "identifier": "conn-6",
+        "name": "HighRiskToLog",
+        "source": {
+          "id": "route-by-risk",
+          "type": "PROCESSOR"
+        },
+        "destination": {
+          "id": "log-high-risk",
+          "type": "PROCESSOR"
+        },
+        "selectedRelationships": ["high_risk"],
+        "position": {
+          "x": 1475,
+          "y": 50
+        }
+      },
+      {
+        "identifier": "conn-7",
+        "name": "HighRiskToPut",
+        "source": {
+          "id": "log-high-risk",
+          "type": "PROCESSOR"
+        },
+        "destination": {
+          "id": "put-fraud-alerts",
+          "type": "PROCESSOR"
+        },
+        "selectedRelationships": ["success"],
+        "position": {
+          "x": 1725,
+          "y": 0
+        }
+      },
+      {
+        "identifier": "conn-8",
+        "name": "LowRiskToLog",
+        "source": {
+          "id": "route-by-risk",
+          "type": "PROCESSOR"
+        },
+        "destination": {
+          "id": "log-normal",
+          "type": "PROCESSOR"
+        },
+        "selectedRelationships": ["low_risk", "medium_risk"],
+        "position": {
+          "x": 1475,
+          "y": 150
+        }
+      }
+    ],
+    "labels": [],
+    "funnels": [],
+    "controllerServices": [],
+    "variables": {
+      "ml.model.endpoint": "https://your-cml-workspace.cloudera.site/api/v1/models/fraud-detection/predict",
+      "fraud.alerts.directory": "/tmp/fraud_alerts"
+    },
+    "parameterContexts": []
+  },
+  "snapshotMetadata": {
+    "bucketIdentifier": "fraud-detection",
+    "flowIdentifier": "fraud-detection-flow",
+    "version": 1,
+    "timestamp": 1702900800000,
+    "author": "cloudera-admin",
+    "comments": "Initial fraud detection NiFi flow"
+  }
+}
