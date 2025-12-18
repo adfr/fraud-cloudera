@@ -18,7 +18,8 @@ except ImportError:
     from dotenv import load_dotenv
 
 # Load environment variables from .env file
-env_path = "fraud-cloudera/cloudera-fraud-detection/.env"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(script_dir, ".env")
 if os.path.exists(env_path):
     load_dotenv(dotenv_path=env_path)
 else:
@@ -62,7 +63,7 @@ def create_cml_model():
             model_id=model_id,
             runtime_identifier=runtime_id,
             kernel="python3",
-            file_path="fraud-cloudera/cloudera-fraud-detection/predict.py",
+            file_path="predict.py",  # Relative to CML project root
             function_name="predict"
         )
         
@@ -129,8 +130,10 @@ def create_cml_model():
             "project_id": project_id
         }
         
-        os.makedirs("models", exist_ok=True)
-        with open("models/cml_deployment_info.json", "w") as f:
+        models_dir = os.path.join(script_dir, "models")
+        os.makedirs(models_dir, exist_ok=True)
+        deployment_info_path = os.path.join(models_dir, "cml_deployment_info.json")
+        with open(deployment_info_path, "w") as f:
             json.dump(deployment_info, f, indent=2)
         
         print(f"\n🎉 Model deployment completed successfully!")
@@ -210,7 +213,8 @@ def show_usage_instructions():
     print("="*60)
     
     try:
-        with open("models/cml_deployment_info.json", "r") as f:
+        deployment_info_path = os.path.join(script_dir, "models", "cml_deployment_info.json")
+        with open(deployment_info_path, "r") as f:
             info = json.load(f)
     except FileNotFoundError:
         print("❌ Deployment info not found")
