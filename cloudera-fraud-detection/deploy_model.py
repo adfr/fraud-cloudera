@@ -75,30 +75,30 @@ def create_cml_model():
     model_name = "Fraud Detection Model"
 
     try:
-        # Check if model already exists
+        # Check if model already exists and delete it (clean slate)
         print(f"Checking for existing model '{model_name}'...")
-        models = client.list_models(project_id=project_id)
-        existing_model = None
-        for m in models.models:
+        models_list = client.list_models(project_id=project_id)
+        for m in models_list.models:
             if m.name == model_name:
-                existing_model = m
-                break
+                print(f"Found existing model {m.id}, deleting for clean rebuild...")
+                try:
+                    client.delete_model(project_id=project_id, model_id=m.id)
+                    print(f"✓ Deleted old model")
+                    time.sleep(2)  # Wait for deletion to propagate
+                except Exception as del_err:
+                    print(f"Warning: Could not delete old model: {del_err}")
 
-        if existing_model:
-            model_id = existing_model.id
-            print(f"✓ Found existing model with ID: {model_id}")
-        else:
-            # Create new model
-            print("Creating new CML model...")
-            model_request = cmlapi.CreateModelRequest(
-                name=model_name,
-                description="Real-time fraud detection using LightGBM for credit card transactions",
-                project_id=project_id,
-                disable_authentication=False
-            )
-            model_response = client.create_model(model_request, project_id=project_id)
-            model_id = model_response.id
-            print(f"✓ Model created with ID: {model_id}")
+        # Create new model
+        print("Creating new CML model...")
+        model_request = cmlapi.CreateModelRequest(
+            name=model_name,
+            description="Real-time fraud detection using LightGBM for credit card transactions",
+            project_id=project_id,
+            disable_authentication=False
+        )
+        model_response = client.create_model(model_request, project_id=project_id)
+        model_id = model_response.id
+        print(f"✓ Model created with ID: {model_id}")
         
         # Create model build
         print("\nCreating model build...")
