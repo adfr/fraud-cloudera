@@ -97,12 +97,13 @@ OUTPUT_FILE = "creditcard_fraud.csv"
 
 # Config file search paths (JSON and YAML supported)
 DEFAULT_CONFIG_PATHS = [
-    # Standard Kaggle JSON location (most common)
+    # Project root (simplest - just drop kaggle.json in the project folder)
+    "kaggle.json",
+    # Standard Kaggle JSON location
     os.path.expanduser("~/.kaggle/kaggle.json"),
-    # Project-specific YAML configs
-    "config/kaggle.yaml",
-    "config/kaggle.yml",
+    # Config subfolder
     "config/kaggle.json",
+    "config/kaggle.yaml",
 ]
 
 

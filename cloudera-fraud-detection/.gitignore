@@ -1,4 +1,6 @@
 # Credentials (NEVER commit these!)
+kaggle.json
+config/kaggle.json
 config/kaggle.yaml
 config/kaggle.yml
 .kaggle/
