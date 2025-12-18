@@ -133,10 +133,9 @@ def create_cml_model():
         deployment_request = cmlapi.CreateModelDeploymentRequest(
             model_id=model_id,
             build_id=build_id,
-            cpu="1",
-            memory="2",
-            nvidia_gpu="0",
-            replicas="1"
+            cpu=1,
+            memory=2,
+            replicas=1
         )
         
         deployment_response = client.create_model_deployment(
