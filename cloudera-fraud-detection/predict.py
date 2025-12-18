@@ -11,6 +11,13 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
+# CML model decorator for PBJ runtimes
+try:
+    import cml.models_v1 as models
+    CML_AVAILABLE = True
+except ImportError:
+    CML_AVAILABLE = False
+
 # Global variables to cache model and metadata
 model = None
 metadata = None
@@ -232,7 +239,8 @@ def generate_explanation(input_data, probability):
     return explanations if explanations else ["Multiple risk factors detected"]
 
 
-def predict(request):
+# Apply CML decorator if available (required for PBJ runtimes)
+def _predict_impl(request):
     """
     Main prediction function called by CML
 
@@ -349,6 +357,17 @@ def predict(request):
         }
         print(f"Prediction error: {str(e)}")
         return error_response
+
+
+# Create the decorated predict function for CML
+if CML_AVAILABLE:
+    @models.cml_model
+    def predict(request):
+        """CML model endpoint with decorator"""
+        return _predict_impl(request)
+else:
+    # Fallback for local testing without CML
+    predict = _predict_impl
 
 
 # For local testing
