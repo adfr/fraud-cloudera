@@ -82,6 +82,18 @@ cloudera-fraud-detection/
 
 ## Quick Start
 
+### 0. Setup Environment (Required First Step)
+
+```bash
+cd cloudera-fraud-detection
+
+# Run setup script (creates venv and installs dependencies)
+./setup.sh
+
+# Activate the virtual environment
+source venv/bin/activate
+```
+
 ### 1. Run the Demo
 
 ```bash

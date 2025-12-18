@@ -36,26 +36,48 @@ import os
 import sys
 import subprocess
 
-# Auto-install required packages
-def install_package(package):
-    """Install a package using pip."""
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", package])
 
-# Check and install required packages
-required_packages = {
-    'pandas': 'pandas',
-    'numpy': 'numpy',
-    'yaml': 'pyyaml',
-    'kaggle': 'kaggle',
-    'sklearn': 'scikit-learn',
-}
+def check_environment():
+    """Check if running in proper environment and setup if needed."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_dir = os.path.dirname(script_dir)
+    venv_dir = os.path.join(project_dir, "venv")
 
-for module, package in required_packages.items():
-    try:
-        __import__(module)
-    except ImportError:
-        print(f"Installing {package}...")
-        install_package(package)
+    # Check if we're in a virtual environment
+    in_venv = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+
+    if not in_venv and os.path.exists(venv_dir):
+        print("Virtual environment exists but not activated.")
+        print(f"Please activate it first:")
+        print(f"  source {venv_dir}/bin/activate")
+        print(f"  python scripts/download_kaggle_data.py")
+        sys.exit(1)
+
+    # Auto-install required packages
+    required_packages = {
+        'pandas': 'pandas',
+        'numpy': 'numpy',
+        'yaml': 'pyyaml',
+        'kaggle': 'kaggle',
+        'sklearn': 'scikit-learn',
+    }
+
+    missing_packages = []
+    for module, package in required_packages.items():
+        try:
+            __import__(module)
+        except ImportError:
+            missing_packages.append(package)
+
+    if missing_packages:
+        print(f"Installing missing packages: {', '.join(missing_packages)}")
+        for package in missing_packages:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", package])
+        print("Packages installed successfully.\n")
+
+
+# Run environment check
+check_environment()
 
 import argparse
 import pandas as pd
