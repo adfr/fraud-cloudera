@@ -11,7 +11,8 @@ def _load():
     if _model is None:
         try:
             import joblib
-            d = os.path.dirname(os.path.abspath(__file__))
+            # Use getcwd() - in CML PBJ, cwd is /home/cdsw/ (project root)
+            d = os.path.join(os.getcwd(), "cloudera-fraud-detection")
             mp = os.path.join(d, "models", "fraud_detection_lgb.pkl")
             meta_p = os.path.join(d, "models", "model_metadata.json")
             if os.path.exists(mp):
@@ -37,7 +38,7 @@ def predict(args):
             return {"error": err}
 
         if model is None:
-            d = os.path.dirname(os.path.abspath(__file__))
+            d = os.path.join(os.getcwd(), "cloudera-fraud-detection")
             mp = os.path.join(d, "models", "fraud_detection_lgb.pkl")
             return {"error": f"Model not found at {mp}", "exists": os.path.exists(mp)}
 
