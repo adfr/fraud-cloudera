@@ -9,29 +9,9 @@ import sys
 import json
 from datetime import datetime
 
-# Auto-install dependencies if missing (for CML model deployment)
-def ensure_dependencies():
-    """Install required packages if not available"""
-    required = ['joblib', 'pandas', 'numpy', 'lightgbm', 'scikit-learn']
-    missing = []
-    for pkg in required:
-        try:
-            __import__(pkg.replace('-', '_'))
-        except ImportError:
-            missing.append(pkg)
-
-    if missing:
-        import subprocess
-        print(f"Installing missing dependencies: {missing}")
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install'] + missing)
-
-ensure_dependencies()
-
 import joblib
 import pandas as pd
 import numpy as np
-
-# CML model decorator - MUST be imported for PBJ runtimes
 import cml.models_v1 as models
 
 # Global variables to cache model and metadata
