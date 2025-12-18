@@ -104,10 +104,18 @@ Download and train on the real Kaggle dataset (284,807 transactions):
 # Setup Kaggle API (one-time)
 # 1. Create account at kaggle.com
 # 2. Go to Settings -> API -> Create New Token
-# 3. Save kaggle.json to ~/.kaggle/
+# 3. Create config/kaggle.yaml with your credentials:
+
+cp config/kaggle.yaml.example config/kaggle.yaml
+# Edit config/kaggle.yaml and add:
+#   username: your_kaggle_username
+#   key: your_kaggle_api_key
 
 # Download dataset
 python scripts/download_kaggle_data.py
+
+# Or specify a custom config path:
+python scripts/download_kaggle_data.py --config path/to/kaggle.yaml
 
 # Train model
 python scripts/train_kaggle_model.py

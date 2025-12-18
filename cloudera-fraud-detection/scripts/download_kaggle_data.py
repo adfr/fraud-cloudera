@@ -10,16 +10,23 @@ Dataset: https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud
 - Highly imbalanced dataset
 
 Requirements:
-    pip install kaggle
+    pip install kaggle pyyaml
 
-Setup:
+Setup (YAML config - recommended):
     1. Create Kaggle account at https://www.kaggle.com
     2. Go to Account Settings -> API -> Create New Token
-    3. Save kaggle.json to ~/.kaggle/kaggle.json
-    4. chmod 600 ~/.kaggle/kaggle.json
+    3. Create config/kaggle.yaml with your credentials:
+
+       username: your_kaggle_username
+       key: your_kaggle_api_key
+
+    4. chmod 600 config/kaggle.yaml
 
 Usage:
     python scripts/download_kaggle_data.py
+
+    # With custom config path:
+    python scripts/download_kaggle_data.py --config path/to/kaggle.yaml
 
     # Or with manual download:
     python scripts/download_kaggle_data.py --manual path/to/creditcard.csv
@@ -35,15 +42,99 @@ import json
 import zipfile
 import shutil
 
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
+
 
 DATASET_NAME = "mlg-ulb/creditcardfraud"
 OUTPUT_DIR = "data"
 OUTPUT_FILE = "creditcard_fraud.csv"
+DEFAULT_CONFIG_PATHS = [
+    "config/kaggle.yaml",
+    "config/kaggle.yml",
+    ".kaggle/kaggle.yaml",
+    os.path.expanduser("~/.kaggle/kaggle.yaml"),
+    os.path.expanduser("~/.kaggle/kaggle.yml"),
+]
 
 
-def download_from_kaggle(output_dir: str) -> str:
+def load_kaggle_credentials(config_path: str = None) -> bool:
+    """
+    Load Kaggle credentials from YAML config file.
+
+    Sets KAGGLE_USERNAME and KAGGLE_KEY environment variables
+    which the Kaggle API will use for authentication.
+
+    Args:
+        config_path: Path to YAML config file. If None, searches default locations.
+
+    Returns:
+        True if credentials were loaded successfully
+    """
+    if not YAML_AVAILABLE:
+        print("Warning: pyyaml not installed. Install with: pip install pyyaml")
+        print("Falling back to standard Kaggle authentication...")
+        return False
+
+    # Find config file
+    if config_path:
+        paths_to_check = [config_path]
+    else:
+        paths_to_check = DEFAULT_CONFIG_PATHS
+
+    config_file = None
+    for path in paths_to_check:
+        if os.path.exists(path):
+            config_file = path
+            break
+
+    if not config_file:
+        print("No Kaggle YAML config found. Searched locations:")
+        for path in paths_to_check[:3]:  # Show first 3 locations
+            print(f"  - {path}")
+        print("\nCreate config/kaggle.yaml with:")
+        print("  username: your_kaggle_username")
+        print("  key: your_kaggle_api_key")
+        print("\nFalling back to standard Kaggle authentication...")
+        return False
+
+    try:
+        print(f"Loading Kaggle credentials from: {config_file}")
+        with open(config_file, 'r') as f:
+            config = yaml.safe_load(f)
+
+        username = config.get('username')
+        key = config.get('key')
+
+        if not username or not key:
+            print("Error: YAML config must contain 'username' and 'key' fields")
+            return False
+
+        # Set environment variables for Kaggle API
+        os.environ['KAGGLE_USERNAME'] = username
+        os.environ['KAGGLE_KEY'] = key
+
+        print(f"Loaded credentials for user: {username}")
+        return True
+
+    except yaml.YAMLError as e:
+        print(f"Error parsing YAML config: {e}")
+        return False
+    except Exception as e:
+        print(f"Error loading config: {e}")
+        return False
+
+
+def download_from_kaggle(output_dir: str, config_path: str = None) -> str:
     """
     Download the Credit Card Fraud dataset from Kaggle.
+
+    Args:
+        output_dir: Directory to save the dataset
+        config_path: Path to YAML config file with Kaggle credentials
 
     Returns:
         Path to the downloaded CSV file
@@ -57,7 +148,10 @@ def download_from_kaggle(output_dir: str) -> str:
         print("https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud")
         sys.exit(1)
 
-    print(f"Downloading dataset: {DATASET_NAME}")
+    # Load credentials from YAML config
+    load_kaggle_credentials(config_path)
+
+    print(f"\nDownloading dataset: {DATASET_NAME}")
     print("This may take a few minutes...")
 
     try:
@@ -254,6 +348,11 @@ def main():
         help='Path to manually downloaded creditcard.csv'
     )
     parser.add_argument(
+        '--config', '-c',
+        type=str,
+        help='Path to Kaggle YAML config file (default: config/kaggle.yaml)'
+    )
+    parser.add_argument(
         '--output', '-o',
         type=str,
         default=OUTPUT_DIR,
@@ -281,7 +380,7 @@ def main():
             sys.exit(1)
         csv_path = args.manual
     else:
-        csv_path = download_from_kaggle(args.output)
+        csv_path = download_from_kaggle(args.output, config_path=args.config)
 
     # Load and process
     df = load_and_process_data(csv_path)
