@@ -73,6 +73,10 @@ def get_rating_engine():
 def validate_and_prepare_input(input_data):
     """Validate and prepare input data for prediction"""
 
+    # Handle None or empty input
+    if input_data is None:
+        input_data = {}
+
     # Full feature list for enhanced model
     expected_features = [
         # Transaction attributes
@@ -248,6 +252,10 @@ def predict(request):
     """
 
     try:
+        # Handle None or empty request
+        if request is None:
+            request = {}
+
         # Load model if not already loaded
         load_model()
 
