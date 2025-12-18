@@ -43,28 +43,48 @@ def load_kaggle_credentials_early():
     Load Kaggle credentials BEFORE importing kaggle package.
     The kaggle package auto-authenticates on import, so we must set
     environment variables first.
+
+    Supports both JSON and YAML formats.
     """
     # Get the script's directory and project root
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_dir = os.path.dirname(script_dir)
 
-    # Search paths for kaggle.json (in order of priority)
+    # Search paths - supports BOTH json and yaml
     search_paths = [
-        # Project root (simplest) - use absolute path
+        # Project root - JSON
         os.path.join(project_dir, "kaggle.json"),
+        # Project root - YAML
+        os.path.join(project_dir, "kaggle.yaml"),
+        os.path.join(project_dir, "kaggle.yml"),
         # Cloudera CML location
         os.path.expanduser("~/.config/kaggle/kaggle.json"),
         # Standard Kaggle location
         os.path.expanduser("~/.kaggle/kaggle.json"),
-        # Config subfolder
+        # Config subfolder - JSON and YAML
         os.path.join(project_dir, "config", "kaggle.json"),
+        os.path.join(project_dir, "config", "kaggle.yaml"),
+        os.path.join(project_dir, "config", "kaggle.yml"),
     ]
 
     for path in search_paths:
         if os.path.exists(path):
             try:
                 with open(path, 'r') as f:
-                    config = json.load(f)
+                    content = f.read()
+
+                # Parse based on extension
+                if path.endswith('.json'):
+                    config = json.loads(content)
+                else:
+                    # YAML - simple key: value parsing without importing yaml
+                    config = {}
+                    for line in content.split('\n'):
+                        line = line.strip()
+                        if ':' in line and not line.startswith('#'):
+                            key, val = line.split(':', 1)
+                            config[key.strip()] = val.strip()
+
                 username = config.get('username')
                 key = config.get('key')
                 if username and key:
@@ -76,11 +96,13 @@ def load_kaggle_credentials_early():
                 print(f"Warning: Failed to load {path}: {e}")
 
     # No credentials found - print helpful message
-    print("WARNING: No kaggle.json found. Searched:")
+    print("WARNING: No kaggle credentials found. Searched:")
     for path in search_paths:
         exists = "EXISTS" if os.path.exists(path) else "not found"
         print(f"  - {path} ({exists})")
-    print("\nPut your kaggle.json in:", os.path.join(project_dir, "kaggle.json"))
+    print(f"\nCreate one of these files with your Kaggle credentials:")
+    print(f"  JSON: {os.path.join(project_dir, 'kaggle.json')}")
+    print(f"  YAML: {os.path.join(project_dir, 'kaggle.yaml')}")
     return False
 
 
