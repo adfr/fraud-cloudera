@@ -27,15 +27,18 @@ echo ""
 echo "Activating virtual environment..."
 source venv/bin/activate
 
-# Upgrade pip
+# Unset any pip user config that might interfere
+unset PIP_USER
+
+# Upgrade pip (without --user flag)
 echo ""
 echo "Upgrading pip..."
-pip install --upgrade pip -q
+pip install --upgrade pip --no-user
 
-# Install requirements
+# Install requirements (without --user flag)
 echo ""
 echo "Installing dependencies from requirements.txt..."
-pip install -r requirements.txt -q
+pip install -r requirements.txt --no-user
 
 echo ""
 echo "============================================================"
