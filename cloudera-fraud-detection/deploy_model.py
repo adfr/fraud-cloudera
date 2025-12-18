@@ -25,23 +25,52 @@ if os.path.exists(env_path):
 else:
     load_dotenv()
 
+def get_available_runtime(client):
+    """Get an available Python runtime from CML"""
+    try:
+        runtimes = client.list_runtimes(page_size=100)
+        # Prefer Python 3.10 or 3.11 PBJ runtime
+        for rt in runtimes.runtimes:
+            if 'python3.10' in rt.image_identifier or 'python3.11' in rt.image_identifier:
+                if 'pbj' in rt.image_identifier.lower():
+                    return rt.image_identifier
+        # Fallback to any Python runtime
+        for rt in runtimes.runtimes:
+            if 'python' in rt.image_identifier.lower():
+                return rt.image_identifier
+        # Return first available
+        if runtimes.runtimes:
+            return runtimes.runtimes[0].image_identifier
+    except Exception as e:
+        print(f"Warning: Could not list runtimes: {e}")
+    return None
+
+
 def create_cml_model():
     """Create a CML model using native model deployment capabilities"""
-    
+
     # Get environment variables
     api_host = os.environ.get("CML_API_HOST")
-    api_key = os.environ.get("CML_API_KEY") 
+    api_key = os.environ.get("CML_API_KEY")
     project_id = os.environ.get("CML_PROJECT_ID")
-    runtime_id = os.environ.get("CML_RUNTIME_ID", 
-                                "docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-jupyterlab-python3.10-standard:2025.01.2-b15")
-    
+    runtime_id = os.environ.get("CML_RUNTIME_ID")  # Can be set in .env or auto-detected
+
     if not all([api_host, api_key, project_id]):
         raise ValueError("Missing required environment variables: CML_API_HOST, CML_API_KEY, CML_PROJECT_ID")
-    
+
     print(f"Creating CML model in project: {project_id}")
-    
+
     # Initialize CML API client
     client = cmlapi.default_client(api_host, api_key)
+
+    # Auto-detect runtime if not specified
+    if not runtime_id:
+        print("No CML_RUNTIME_ID specified, detecting available runtime...")
+        runtime_id = get_available_runtime(client)
+        if runtime_id:
+            print(f"✓ Using runtime: {runtime_id}")
+        else:
+            raise ValueError("Could not find available runtime. Set CML_RUNTIME_ID in .env")
     
     model_name = "Fraud Detection Model"
 
