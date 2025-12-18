@@ -55,17 +55,25 @@ def predict(args):
             return {"error": err}
 
         if model is None:
-            # Return diagnostic info
-            return {
+            # Return diagnostic info - list actual directory contents
+            diag = {
                 "error": "Model not found",
                 "cwd": os.getcwd(),
-                "tried_paths": [
-                    "/home/cdsw/cloudera-fraud-detection/models",
-                    "/home/cdsw/models",
-                    os.path.join(os.getcwd(), "cloudera-fraud-detection", "models"),
-                    os.path.join(os.getcwd(), "models"),
-                ]
+                "cwd_contents": os.listdir(os.getcwd()) if os.path.exists(os.getcwd()) else "N/A",
             }
+            # Check cloudera-fraud-detection dir
+            cfd = "/home/cdsw/cloudera-fraud-detection"
+            if os.path.exists(cfd):
+                diag["cfd_exists"] = True
+                diag["cfd_contents"] = os.listdir(cfd)
+                models_dir = os.path.join(cfd, "models")
+                if os.path.exists(models_dir):
+                    diag["models_dir_contents"] = os.listdir(models_dir)
+                else:
+                    diag["models_dir_exists"] = False
+            else:
+                diag["cfd_exists"] = False
+            return diag
 
         import pandas as pd
         feats = meta.get("features", []) if meta else []
