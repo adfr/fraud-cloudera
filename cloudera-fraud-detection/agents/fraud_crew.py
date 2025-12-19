@@ -10,11 +10,116 @@ from typing import Dict, List, Optional, Any
 import json
 from datetime import datetime
 import os
+import sys
 
 from .query_agent import TransactionQueryAgent
 from .pattern_agent import PatternMatchingAgent, FRAUD_PATTERNS
 from .assessment_agent import AssessmentWriterAgent
 from .merchant_agent import MerchantResearchAgent
+
+
+def _is_jupyter() -> bool:
+    """Check if running in a Jupyter notebook environment."""
+    try:
+        from IPython import get_ipython
+        shell = get_ipython()
+        if shell is None:
+            return False
+        # Check for various Jupyter kernel types
+        shell_name = shell.__class__.__name__
+        return shell_name in ('ZMQInteractiveShell', 'TerminalInteractiveShell')
+    except (ImportError, NameError):
+        return False
+
+
+def _disable_rich_jupyter_mode():
+    """
+    Disable Rich's Jupyter integration to prevent recursion issues.
+
+    Rich's Jupyter mode intercepts stdout and can cause infinite recursion
+    when combined with CrewAI's Rich-based output system.
+    """
+    try:
+        from rich.console import Console
+
+        # Create a non-Jupyter console and patch the default
+        # This prevents the infinite recursion when Rich tries to display
+        # through Jupyter's display system
+        import rich
+        rich.reconfigure(force_terminal=True, force_interactive=False)
+
+    except ImportError:
+        pass
+    except Exception:
+        # If this fails for any reason, just continue
+        pass
+
+
+# Disable Rich Jupyter mode at import time to prevent recursion
+if _is_jupyter():
+    _disable_rich_jupyter_mode()
+
+
+def _safe_print(*args, **kwargs):
+    """
+    Print function that bypasses Rich's console to avoid recursion in Jupyter.
+
+    Rich intercepts sys.stdout in Jupyter environments, which can cause
+    infinite recursion when Rich tries to display output and triggers
+    stdout flush, which triggers Rich again.
+
+    This function writes directly to the original stdout to avoid the issue.
+    """
+    # Use the original stdout to bypass any interceptors (like Rich)
+    original_stdout = sys.__stdout__
+
+    # Convert args to string
+    message = ' '.join(str(arg) for arg in args)
+    end = kwargs.get('end', '\n')
+
+    try:
+        original_stdout.write(message + end)
+        original_stdout.flush()
+    except Exception:
+        # Fallback to regular print if something goes wrong
+        pass
+
+
+def _check_llm_configuration() -> tuple[bool, str]:
+    """
+    Check if an LLM is properly configured for CrewAI.
+
+    Returns:
+        Tuple of (is_configured, message)
+    """
+    # Check for common LLM API keys
+    openai_key = os.getenv('OPENAI_API_KEY')
+    anthropic_key = os.getenv('ANTHROPIC_API_KEY')
+    azure_key = os.getenv('AZURE_OPENAI_API_KEY')
+
+    if openai_key and openai_key.startswith('sk-'):
+        return True, "OpenAI API key configured"
+    if anthropic_key:
+        return True, "Anthropic API key configured"
+    if azure_key:
+        return True, "Azure OpenAI API key configured"
+
+    return False, """
+No LLM API key found. CrewAI requires an LLM to orchestrate agents.
+
+To fix this, set one of these environment variables:
+  - OPENAI_API_KEY: For OpenAI GPT models (recommended)
+  - ANTHROPIC_API_KEY: For Anthropic Claude models
+  - AZURE_OPENAI_API_KEY: For Azure OpenAI
+
+Example:
+  export OPENAI_API_KEY='sk-your-key-here'
+
+Or create a .env file with:
+  OPENAI_API_KEY=sk-your-key-here
+
+For testing without an LLM, use quick_analyze() which doesn't require LLM.
+"""
 
 
 class FraudAnalysisCrew:
@@ -36,7 +141,8 @@ class FraudAnalysisCrew:
         self,
         llm=None,
         verbose: bool = True,
-        serper_api_key: Optional[str] = None
+        serper_api_key: Optional[str] = None,
+        skip_llm_check: bool = False
     ):
         """
         Initialize the Fraud Analysis Crew.
@@ -45,10 +151,17 @@ class FraudAnalysisCrew:
             llm: Language model to use (defaults to CrewAI default)
             verbose: Whether to print detailed logs
             serper_api_key: API key for web search (optional)
+            skip_llm_check: Skip LLM configuration check (for quick_analyze only)
         """
         self.llm = llm
         self.verbose = verbose
         self.serper_api_key = serper_api_key or os.getenv('SERPER_API_KEY')
+        self._llm_configured = None
+        self._llm_message = None
+
+        # Check LLM configuration (but don't fail yet - wait for analyze_alert)
+        if not skip_llm_check and llm is None:
+            self._llm_configured, self._llm_message = _check_llm_configuration()
 
         # Initialize agent factories
         self.query_agent_factory = TransactionQueryAgent(llm=llm)
@@ -241,27 +354,44 @@ class FraudAnalysisCrew:
         Returns:
             Dictionary with analysis results
         """
-        print("\n" + "="*70)
-        print("  FRAUD ANALYSIS CREW - Starting Investigation")
-        print("="*70 + "\n")
+        # Check LLM configuration before attempting analysis
+        if self._llm_configured is False:
+            _safe_print("\n" + "="*70)
+            _safe_print("  FRAUD ANALYSIS CREW - Configuration Error")
+            _safe_print("="*70)
+            _safe_print(self._llm_message)
+
+            return {
+                "status": "configuration_error",
+                "error": "LLM not configured",
+                "message": self._llm_message.strip(),
+                "analysis_id": f"FRAUD-{datetime.now().strftime('%Y%m%d%H%M%S')}-CFG",
+                "alert_analyzed": alert_data.get('transaction_id', 'unknown'),
+                "timestamp": datetime.now().isoformat(),
+                "suggestion": "Use quick_analyze() for testing without LLM, or configure an API key."
+            }
+
+        _safe_print("\n" + "="*70)
+        _safe_print("  FRAUD ANALYSIS CREW - Starting Investigation")
+        _safe_print("="*70 + "\n")
 
         start_time = datetime.now()
 
         try:
             # Create agents
-            print("[1/4] Initializing agents...")
+            _safe_print("[1/4] Initializing agents...")
             agents = self.create_agents()
 
             # Create tasks
-            print("[2/4] Creating analysis tasks...")
+            _safe_print("[2/4] Creating analysis tasks...")
             tasks = self.create_tasks(agents, alert_data)
 
             # Create crew
-            print("[3/4] Assembling crew...")
+            _safe_print("[3/4] Assembling crew...")
             crew = self.create_crew(agents, tasks)
 
             # Execute
-            print("[4/4] Executing analysis...\n")
+            _safe_print("[4/4] Executing analysis...\n")
             result = crew.kickoff()
 
             end_time = datetime.now()
@@ -288,9 +418,9 @@ class FraudAnalysisCrew:
             except:
                 analysis_result['assessment'] = str(result)
 
-            print("\n" + "="*70)
-            print(f"  Analysis Complete - Duration: {duration:.2f} seconds")
-            print("="*70 + "\n")
+            _safe_print("\n" + "="*70)
+            _safe_print(f"  Analysis Complete - Duration: {duration:.2f} seconds")
+            _safe_print("="*70 + "\n")
 
             return analysis_result
 
@@ -298,16 +428,33 @@ class FraudAnalysisCrew:
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
 
+            # Provide more helpful error messages for common issues
+            error_msg = str(e)
+            suggestion = ""
+
+            if "api_key" in error_msg.lower() or "authentication" in error_msg.lower():
+                suggestion = "Check that your OPENAI_API_KEY is valid and has sufficient credits."
+            elif "rate limit" in error_msg.lower():
+                suggestion = "Rate limit exceeded. Wait a moment and try again."
+            elif "connection" in error_msg.lower() or "timeout" in error_msg.lower():
+                suggestion = "Network error. Check your internet connection and try again."
+
             error_result = {
                 "status": "error",
-                "error": str(e),
+                "error": error_msg,
                 "analysis_id": f"FRAUD-{datetime.now().strftime('%Y%m%d%H%M%S')}-ERR",
                 "alert_analyzed": alert_data.get('transaction_id', 'unknown'),
                 "duration_seconds": duration,
                 "timestamp": end_time.isoformat()
             }
 
-            print(f"\n[ERROR] Analysis failed: {e}\n")
+            if suggestion:
+                error_result["suggestion"] = suggestion
+
+            _safe_print(f"\n[ERROR] Analysis failed: {e}")
+            if suggestion:
+                _safe_print(f"[SUGGESTION] {suggestion}")
+            _safe_print("")
 
             return error_result
 
@@ -316,72 +463,91 @@ class FraudAnalysisCrew:
         Perform a quick analysis without full crew orchestration.
         Useful for high-volume, lower-priority alerts.
 
+        This method does NOT require an LLM - it uses direct tool calls
+        for pattern matching and merchant research.
+
         Args:
             alert_data: Dictionary containing the fraud alert
 
         Returns:
             Dictionary with quick analysis results
         """
-        print("\n[QUICK ANALYSIS] Starting rapid assessment...")
+        _safe_print("\n[QUICK ANALYSIS] Starting rapid assessment...")
 
         start_time = datetime.now()
 
-        # Direct tool calls without agent orchestration
-        from .pattern_agent import PatternMatchingAgent
-        from .merchant_agent import MerchantResearchAgent
+        try:
+            # Direct tool calls without agent orchestration
+            from .pattern_agent import PatternMatchingAgent
+            from .merchant_agent import MerchantResearchAgent
 
-        pattern_agent = PatternMatchingAgent()
-        merchant_agent = MerchantResearchAgent()
+            pattern_agent = PatternMatchingAgent()
+            merchant_agent = MerchantResearchAgent()
 
-        # Pattern matching
-        pattern_result = pattern_agent.match_fraud_patterns.__wrapped__(
-            json.dumps(alert_data)
-        )
+            # Pattern matching
+            pattern_result = pattern_agent.match_fraud_patterns.__wrapped__(
+                json.dumps(alert_data)
+            )
 
-        # Merchant research
-        merchant_name = alert_data.get('Merchant Name', 'Unknown')
-        merchant_mcc = alert_data.get('MCC', 0)
-        merchant_state = alert_data.get('Merchant State', '')
+            # Merchant research
+            merchant_name = alert_data.get('Merchant Name', 'Unknown')
+            merchant_mcc = alert_data.get('MCC', 0)
+            merchant_state = alert_data.get('Merchant State', '')
 
-        merchant_result = merchant_agent.get_merchant_risk_profile.__wrapped__(
-            merchant_name, merchant_mcc, merchant_state
-        )
+            merchant_result = merchant_agent.get_merchant_risk_profile.__wrapped__(
+                merchant_name, merchant_mcc, merchant_state
+            )
 
-        end_time = datetime.now()
-        duration = (end_time - start_time).total_seconds()
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
 
-        # Parse results
-        patterns = json.loads(pattern_result)
-        merchant = json.loads(merchant_result)
+            # Parse results
+            patterns = json.loads(pattern_result)
+            merchant = json.loads(merchant_result)
 
-        # Calculate quick risk score
-        pattern_risk = patterns.get('highest_confidence', 0)
-        merchant_risk = merchant.get('risk_score', 0.3)
-        fraud_prob = alert_data.get('fraud_probability', 0.5)
+            # Calculate quick risk score
+            pattern_risk = patterns.get('highest_confidence', 0)
+            merchant_risk = merchant.get('risk_score', 0.3)
+            fraud_prob = alert_data.get('fraud_probability', 0.5)
 
-        quick_risk = (pattern_risk * 0.35 + merchant_risk * 0.25 + fraud_prob * 0.4)
+            quick_risk = (pattern_risk * 0.35 + merchant_risk * 0.25 + fraud_prob * 0.4)
 
-        quick_result = {
-            "status": "completed",
-            "analysis_type": "quick",
-            "analysis_id": f"QUICK-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-            "duration_seconds": duration,
-            "timestamp": end_time.isoformat(),
-            "risk_score": round(quick_risk, 3),
-            "risk_level": _get_risk_level(quick_risk),
-            "patterns_matched": patterns.get('matches_found', 0),
-            "top_pattern": patterns.get('top_matches', [{}])[0].get('pattern_name', 'None') if patterns.get('top_matches') else 'None',
-            "merchant_status": merchant.get('compromise_status', 'unknown'),
-            "recommendation": patterns.get('recommended_action', 'Review'),
-            "details": {
-                "pattern_analysis": patterns,
-                "merchant_analysis": merchant
+            quick_result = {
+                "status": "completed",
+                "analysis_type": "quick",
+                "analysis_id": f"QUICK-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                "duration_seconds": duration,
+                "timestamp": end_time.isoformat(),
+                "risk_score": round(quick_risk, 3),
+                "risk_level": _get_risk_level(quick_risk),
+                "patterns_matched": patterns.get('matches_found', 0),
+                "top_pattern": patterns.get('top_matches', [{}])[0].get('pattern_name', 'None') if patterns.get('top_matches') else 'None',
+                "merchant_status": merchant.get('compromise_status', 'unknown'),
+                "recommendation": patterns.get('recommended_action', 'Review'),
+                "details": {
+                    "pattern_analysis": patterns,
+                    "merchant_analysis": merchant
+                }
             }
-        }
 
-        print(f"[QUICK ANALYSIS] Complete - Risk: {quick_result['risk_level']} ({quick_risk:.2%})")
+            _safe_print(f"[QUICK ANALYSIS] Complete - Risk: {quick_result['risk_level']} ({quick_risk:.2%})")
 
-        return quick_result
+            return quick_result
+
+        except Exception as e:
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+
+            _safe_print(f"[QUICK ANALYSIS] Error: {e}")
+
+            return {
+                "status": "error",
+                "analysis_type": "quick",
+                "error": str(e),
+                "analysis_id": f"QUICK-{datetime.now().strftime('%Y%m%d%H%M%S')}-ERR",
+                "duration_seconds": duration,
+                "timestamp": end_time.isoformat()
+            }
 
 
 def _get_risk_level(score: float) -> str:
@@ -419,9 +585,9 @@ def analyze_fraud_alert(alert_data: Dict, quick: bool = False) -> Dict:
 
 # Example usage and testing
 if __name__ == "__main__":
-    print("="*70)
-    print("  Fraud Analysis Crew - Demo")
-    print("="*70)
+    _safe_print("="*70)
+    _safe_print("  Fraud Analysis Crew - Demo")
+    _safe_print("="*70)
 
     # Sample alert data
     sample_alert = {
@@ -443,26 +609,26 @@ if __name__ == "__main__":
         "transaction_rating": "D"
     }
 
-    print("\n[DEMO] Sample Alert:")
-    print(json.dumps(sample_alert, indent=2))
+    _safe_print("\n[DEMO] Sample Alert:")
+    _safe_print(json.dumps(sample_alert, indent=2))
 
     # Run quick analysis (doesn't require LLM)
-    print("\n" + "-"*70)
-    print("Running Quick Analysis (no LLM required)...")
-    print("-"*70)
+    _safe_print("\n" + "-"*70)
+    _safe_print("Running Quick Analysis (no LLM required)...")
+    _safe_print("-"*70)
 
     crew = FraudAnalysisCrew(verbose=True)
     quick_result = crew.quick_analyze(sample_alert)
 
-    print("\n[RESULT] Quick Analysis Result:")
-    print(json.dumps(quick_result, indent=2))
+    _safe_print("\n[RESULT] Quick Analysis Result:")
+    _safe_print(json.dumps(quick_result, indent=2))
 
     # Full analysis would require an LLM
-    print("\n" + "-"*70)
-    print("Full Analysis requires an LLM (OpenAI, Anthropic, etc.)")
-    print("Set OPENAI_API_KEY or configure CrewAI with your preferred LLM")
-    print("-"*70)
+    _safe_print("\n" + "-"*70)
+    _safe_print("Full Analysis requires an LLM (OpenAI, Anthropic, etc.)")
+    _safe_print("Set OPENAI_API_KEY or configure CrewAI with your preferred LLM")
+    _safe_print("-"*70)
 
     # Example of how to run full analysis:
     # result = crew.analyze_alert(sample_alert)
-    # print(json.dumps(result, indent=2))
+    # _safe_print(json.dumps(result, indent=2))
