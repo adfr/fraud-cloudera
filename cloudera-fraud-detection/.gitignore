@@ -11,9 +11,7 @@ config/kaggle.yml
 data/
 *.csv
 
-# Models (binary files)
-models/*.pkl
-models/*.joblib
+
 
 # Python
 __pycache__/
